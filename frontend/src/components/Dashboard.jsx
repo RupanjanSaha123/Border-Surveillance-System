@@ -1,0 +1,560 @@
+import React, { useState, useEffect } from 'react';
+import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw } from 'lucide-react';
+import { format } from 'date-fns';
+import CameraGrid from './CameraGrid';
+import AlertSystem from './AlertSystem';
+import MapSection from './MapSection';
+
+const Dashboard = ({ onLogout }) => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('cameras'); // 'cameras' | 'map' | 'alert-history' | 'settings'
+  const [mapCenter, setMapCenter] = useState(null); // Used to zoom into alert
+  const [alerts, setAlerts] = useState([]);
+  const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+  const [currentAlert, setCurrentAlert] = useState(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const triggerMockAlert = () => {
+    // Play subtle beep sound
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.5);
+    } catch(e) {
+      console.error('Audio api error', e);
+    }
+
+    const newAlert = {
+      id: Date.now(),
+      timestamp: new Date().toISOString(),
+      sector: ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'][Math.floor(Math.random() * 4)],
+      threat: ['Unidentified Movement', 'Thermal Signature', 'Perimeter Breach', 'Drone Sighted'][Math.floor(Math.random() * 4)],
+      camera: `CAM-0${Math.floor(Math.random() * 4) + 1}`,
+      lat: (32.4 + Math.random() * 0.2).toFixed(4),
+      lng: (76.4 + Math.random() * 0.2).toFixed(4),
+      type: Math.random() > 0.5 ? 'critical' : 'warning',
+    };
+
+    setCurrentAlert(newAlert);
+    setIsAlertModalOpen(true);
+    setAlerts(prev => [newAlert, ...prev].slice(0, 50));
+  };
+
+  const handleViewOnMap = () => {
+    setIsAlertModalOpen(false);
+    setActiveTab('map');
+    setMapCenter({ lat: parseFloat(currentAlert.lat), lng: parseFloat(currentAlert.lng), id: currentAlert.id });
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col bg-military-bg overflow-hidden military-scanline select-none">
+      {/* Top Navigation Bar */}
+      <header className="h-14 border-b border-military-green bg-military-panel flex items-center justify-between px-6 shrink-0 z-20">
+        <div className="flex items-center gap-3">
+          <ShieldAlert className="w-6 h-6 text-military-amber" />
+          <h1 className="text-lg font-bold tracking-widest text-white font-sans uppercase">
+            BSC-DOP // Command Center
+          </h1>
+        </div>
+        
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={triggerMockAlert}
+              className="text-xs border border-military-amber/50 text-military-amber px-2 py-1 hover:bg-military-amber/20 transition-colors"
+            >
+              TEST ALERT
+            </button>
+            <div className="text-military-green text-lg tracking-wider font-mono">
+              {format(currentTime, 'HH:mm:ss')} <span className="text-xs ml-1">IST</span>
+            </div>
+          </div>
+          
+          <button 
+            onClick={onLogout}
+            className="flex items-center gap-2 text-military-red hover:bg-military-red/10 px-3 py-1.5 border border-military-red/30 transition-colors"
+          >
+            <Power className="w-4 h-4" />
+            <span className="text-xs font-bold tracking-widest uppercase">Logout</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Main Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar (15%) */}
+        <aside className="w-[15%] min-w-[200px] border-r border-military-green bg-military-panel/80 flex flex-col z-10">
+          <div className="p-4 border-b border-military-green/50">
+            <h3 className="text-xs text-military-green mb-3 tracking-widest uppercase">System Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">DRONES ONLINE</span>
+                <span className="text-military-amber font-bold">12/12</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">SAT LINK</span>
+                <span className="text-military-green font-bold flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-military-green animate-pulse"></span>
+                  SECURE
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-400">PWR LEVEL</span>
+                <span className="text-white font-bold">98%</span>
+              </div>
+            </div>
+          </div>
+
+          <nav className="flex-1 p-4 space-y-2">
+            <h3 className="text-xs text-military-green mb-3 tracking-widest uppercase">Navigation</h3>
+            <button 
+              onClick={() => setActiveTab('cameras')}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'cameras' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+            >
+              <Crosshair className="w-4 h-4" /> Cameras
+            </button>
+            <button 
+              onClick={() => setActiveTab('map')}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'map' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+            >
+              <MapIcon className="w-4 h-4" /> Tac-Map
+            </button>
+            <button
+              onClick={() => setActiveTab('alert-history')}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'alert-history' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+            >
+              <ShieldAlert className="w-4 h-4" /> Alert History
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'settings' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+            >
+              <Settings className="w-4 h-4" /> Settings
+            </button>
+          </nav>
+
+          <div className="p-4 border-t border-military-green/50 flex items-center gap-3 bg-military-green/5">
+            <div className="w-10 h-10 rounded-full border border-military-green flex items-center justify-center bg-black">
+              <User className="w-5 h-5 text-military-green" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">CMDR. RAJPUT</div>
+              <div className="text-[10px] text-military-green tracking-widest uppercase">ID: IND-8839</div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Center Main Panel (60%) */}
+        <main className="flex-1 w-[60%] flex flex-col relative z-0 overflow-hidden">
+          {activeTab === 'cameras' && <CameraGrid />}
+          {activeTab === 'map' && <MapSection mapCenter={mapCenter} />}
+          {activeTab === 'alert-history' && <AlertHistoryPanel alerts={alerts} />}
+          {activeTab === 'settings' && <SettingsPanel />}
+        </main>
+
+        {/* Right Panel (25%) */}
+        <aside className="w-[25%] min-w-[300px] border-l border-military-green bg-military-panel/90 flex flex-col z-10">
+          <AlertSystem alerts={alerts} />
+        </aside>
+      </div>
+
+      {/* Alert Modal Overlay */}
+      {isAlertModalOpen && currentAlert && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-military-panel border-2 border-military-red shadow-[0_0_50px_rgba(239,68,68,0.3)] animate-pulse-border relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-military-red animate-pulse"></div>
+            
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-full bg-military-red/20 flex items-center justify-center animate-blink">
+                  <ShieldAlert className="w-6 h-6 text-military-red" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-military-red uppercase tracking-widest font-sans">
+                    ⚠ INTRUSION DETECTED
+                  </h2>
+                  <p className="text-military-amber text-lg tracking-widest uppercase">
+                    SECTOR {currentAlert.sector}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-8 bg-black/50 p-4 border border-military-red/30">
+                <div>
+                  <div className="text-xs text-military-red/70 uppercase tracking-wider mb-1">Threat Type</div>
+                  <div className="text-white font-mono">{currentAlert.threat}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-military-red/70 uppercase tracking-wider mb-1">Source</div>
+                  <div className="text-white font-mono">{currentAlert.camera}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-military-red/70 uppercase tracking-wider mb-1">Coordinates</div>
+                  <div className="text-military-amber font-mono text-lg">
+                    {currentAlert.lat}, {currentAlert.lng}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-military-red/70 uppercase tracking-wider mb-1">Timestamp</div>
+                  <div className="text-white font-mono">{format(new Date(currentAlert.timestamp), 'HH:mm:ss')}</div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={handleViewOnMap}
+                  className="flex-1 bg-military-red/20 border border-military-red text-military-red py-3 font-bold tracking-widest uppercase hover:bg-military-red hover:text-white transition-all flex justify-center items-center gap-2 group"
+                >
+                  <MapIcon className="w-5 h-5 group-hover:animate-bounce" />
+                  VIEW ON MAP
+                </button>
+                <button 
+                  onClick={() => setIsAlertModalOpen(false)}
+                  className="px-8 border border-gray-600 text-gray-400 py-3 font-bold tracking-widest uppercase hover:bg-gray-800 hover:text-white transition-colors"
+                >
+                  DISMISS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── Alert History Panel ─────────────────────────────────────────── */
+const AlertHistoryPanel = ({ alerts }) => {
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'critical' | 'warning'
+  const [filterSector, setFilterSector] = useState('all');
+
+  const sectors = ['all', 'ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'];
+
+  const filtered = alerts.filter(a => {
+    const matchType   = filterType === 'all'   || a.type   === filterType;
+    const matchSector = filterSector === 'all' || a.sector === filterSector;
+    const matchSearch = search === '' ||
+      a.threat.toLowerCase().includes(search.toLowerCase()) ||
+      a.sector.toLowerCase().includes(search.toLowerCase()) ||
+      a.camera.toLowerCase().includes(search.toLowerCase());
+    return matchType && matchSector && matchSearch;
+  });
+
+  return (
+    <div className="w-full h-full flex flex-col bg-military-bg overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 px-6 py-4 border-b border-military-green bg-military-panel">
+        <h2 className="text-sm font-bold tracking-widest text-military-amber uppercase flex items-center gap-2 mb-4">
+          <ShieldAlert className="w-4 h-4" /> Alert History Log
+          <span className="ml-auto text-xs text-gray-500 font-mono">{filtered.length} / {alerts.length} records</span>
+        </h2>
+
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search threats, sectors, cameras..."
+            className="w-full bg-black border border-military-green/40 text-white text-xs font-mono pl-8 pr-3 py-2 placeholder-gray-600 focus:outline-none focus:border-military-green tracking-wide"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <Filter className="w-3 h-3 text-gray-500" />
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest">Type:</span>
+          </div>
+          {['all', 'critical', 'warning'].map(t => (
+            <button
+              key={t}
+              onClick={() => setFilterType(t)}
+              className={`text-[10px] px-2 py-0.5 border uppercase tracking-widest transition-colors ${
+                filterType === t
+                  ? t === 'critical' ? 'border-military-red bg-military-red/20 text-military-red'
+                    : t === 'warning' ? 'border-military-amber bg-military-amber/20 text-military-amber'
+                    : 'border-military-green bg-military-green/20 text-military-green'
+                  : 'border-gray-700 text-gray-500 hover:border-gray-500'
+              }`}
+            >{t}</button>
+          ))}
+          <span className="text-gray-700">|</span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest">Sector:</span>
+          </div>
+          {sectors.map(s => (
+            <button
+              key={s}
+              onClick={() => setFilterSector(s)}
+              className={`text-[10px] px-2 py-0.5 border uppercase tracking-widest transition-colors ${
+                filterSector === s
+                  ? 'border-military-amber bg-military-amber/20 text-military-amber'
+                  : 'border-gray-700 text-gray-500 hover:border-gray-500'
+              }`}
+            >{s}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-gray-600">
+            <ShieldAlert className="w-12 h-12 mb-3 opacity-20" />
+            <span className="text-xs font-mono uppercase tracking-widest">
+              {alerts.length === 0 ? 'No alerts recorded yet' : 'No results match filters'}
+            </span>
+          </div>
+        ) : (
+          <table className="w-full text-xs font-mono border-collapse">
+            <thead className="sticky top-0 bg-military-panel border-b border-military-green/40">
+              <tr>
+                {['Time', 'Type', 'Sector', 'Threat', 'Source', 'Coordinates'].map(h => (
+                  <th key={h} className="text-left text-[10px] text-military-green tracking-widest uppercase px-4 py-2 font-normal">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((alert, i) => (
+                <tr
+                  key={alert.id}
+                  className={`border-b border-military-green/10 transition-colors hover:bg-military-green/5 ${
+                    i % 2 === 0 ? 'bg-black/20' : ''
+                  }`}
+                >
+                  <td className="px-4 py-2 text-gray-400 whitespace-nowrap">{format(new Date(alert.timestamp), 'HH:mm:ss')}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-1.5 py-0.5 border uppercase tracking-wider text-[9px] ${
+                      alert.type === 'critical'
+                        ? 'border-military-red/60 text-military-red bg-military-red/10'
+                        : 'border-military-amber/60 text-military-amber bg-military-amber/10'
+                    }`}>{alert.type}</span>
+                  </td>
+                  <td className="px-4 py-2 text-white tracking-widest">{alert.sector}</td>
+                  <td className="px-4 py-2 text-gray-300">{alert.threat}</td>
+                  <td className="px-4 py-2 text-military-green">{alert.camera}</td>
+                  <td className="px-4 py-2 text-military-amber">{alert.lat}, {alert.lng}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Settings Panel ──────────────────────────────────────────────── */
+const SettingsPanel = () => {
+  const defaults = {
+    dronesOnline: 12,
+    alertSensitivity: 75,
+    scanInterval: 5,
+    audioAlerts: true,
+    autoTrack: true,
+    nightVision: false,
+    encryptionLevel: 'AES-256',
+    operatorId: 'IND-8839',
+    callSign: 'CMDR. RAJPUT',
+    streamQuality: 'HD',
+  };
+
+  const [config, setConfig] = useState(() => {
+    try { return { ...defaults, ...JSON.parse(localStorage.getItem('bsc-settings') || '{}') }; }
+    catch { return defaults; }
+  });
+  const [saved, setSaved] = useState(false);
+
+  const update = (key, val) => setConfig(prev => ({ ...prev, [key]: val }));
+
+  const saveSettings = () => {
+    localStorage.setItem('bsc-settings', JSON.stringify(config));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const resetSettings = () => {
+    setConfig(defaults);
+    localStorage.removeItem('bsc-settings');
+  };
+
+  const Toggle = ({ value, onChange }) => (
+    <button
+      onClick={() => onChange(!value)}
+      className={`relative w-10 h-5 border transition-colors ${
+        value ? 'bg-military-green/30 border-military-green' : 'bg-black border-gray-600'
+      }`}
+    >
+      <span className={`absolute top-0.5 w-4 h-4 transition-all ${
+        value ? 'left-5 bg-military-green' : 'left-0.5 bg-gray-600'
+      }`} />
+    </button>
+  );
+
+  const Section = ({ title, icon: Icon, children }) => (
+    <div className="mb-6">
+      <h3 className="text-[10px] text-military-green tracking-widest uppercase flex items-center gap-2 mb-3 pb-2 border-b border-military-green/20">
+        <Icon className="w-3 h-3" /> {title}
+      </h3>
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
+
+  const Row = ({ label, children }) => (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-gray-400 tracking-wider uppercase">{label}</span>
+      <div className="flex items-center gap-2">{children}</div>
+    </div>
+  );
+
+  return (
+    <div className="w-full h-full flex flex-col bg-military-bg overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 px-6 py-4 border-b border-military-green bg-military-panel flex items-center justify-between">
+        <h2 className="text-sm font-bold tracking-widest text-military-amber uppercase flex items-center gap-2">
+          <Settings className="w-4 h-4" /> System Configuration
+        </h2>
+        <div className="flex gap-2">
+          <button
+            onClick={resetSettings}
+            className="flex items-center gap-1.5 text-[10px] px-3 py-1.5 border border-gray-600 text-gray-400 hover:text-white hover:border-gray-400 transition-colors uppercase tracking-widest"
+          >
+            <RotateCcw className="w-3 h-3" /> Reset
+          </button>
+          <button
+            onClick={saveSettings}
+            className={`flex items-center gap-1.5 text-[10px] px-3 py-1.5 border uppercase tracking-widest transition-all ${
+              saved
+                ? 'border-military-green bg-military-green/20 text-military-green'
+                : 'border-military-amber text-military-amber hover:bg-military-amber/10'
+            }`}
+          >
+            <Save className="w-3 h-3" /> {saved ? 'Saved!' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-5 font-mono">
+        <Section title="Drone Operations" icon={Radio}>
+          <Row label="Drones Online">
+            <input
+              type="number" min={0} max={20}
+              value={config.dronesOnline}
+              onChange={e => update('dronesOnline', Number(e.target.value))}
+              className="w-16 bg-black border border-military-green/40 text-military-amber text-xs text-center py-1 focus:outline-none focus:border-military-green"
+            />
+            <span className="text-[10px] text-gray-600">/ 20</span>
+          </Row>
+          <Row label="Scan Interval (s)">
+            <input
+              type="range" min={1} max={30}
+              value={config.scanInterval}
+              onChange={e => update('scanInterval', Number(e.target.value))}
+              className="w-28 accent-military-amber"
+            />
+            <span className="text-xs text-military-amber w-6 text-right">{config.scanInterval}s</span>
+          </Row>
+          <Row label="Stream Quality">
+            {['SD', 'HD', '4K'].map(q => (
+              <button
+                key={q}
+                onClick={() => update('streamQuality', q)}
+                className={`text-[10px] px-2 py-0.5 border uppercase tracking-wider transition-colors ${
+                  config.streamQuality === q
+                    ? 'border-military-amber bg-military-amber/20 text-military-amber'
+                    : 'border-gray-700 text-gray-500 hover:border-gray-500'
+                }`}
+              >{q}</button>
+            ))}
+          </Row>
+        </Section>
+
+        <Section title="Alert Configuration" icon={Sliders}>
+          <Row label="Alert Sensitivity">
+            <input
+              type="range" min={0} max={100}
+              value={config.alertSensitivity}
+              onChange={e => update('alertSensitivity', Number(e.target.value))}
+              className="w-28 accent-military-red"
+            />
+            <span className="text-xs text-military-red w-8 text-right">{config.alertSensitivity}%</span>
+          </Row>
+          <Row label="Audio Alerts">
+            <Toggle value={config.audioAlerts} onChange={v => update('audioAlerts', v)} />
+            <span className="text-[10px] text-gray-500">{config.audioAlerts ? 'ON' : 'OFF'}</span>
+          </Row>
+          <Row label="Auto Track">
+            <Toggle value={config.autoTrack} onChange={v => update('autoTrack', v)} />
+            <span className="text-[10px] text-gray-500">{config.autoTrack ? 'ON' : 'OFF'}</span>
+          </Row>
+        </Section>
+
+        <Section title="Display" icon={Sun}>
+          <Row label="Night Vision Mode">
+            <Toggle value={config.nightVision} onChange={v => update('nightVision', v)} />
+            <span className="text-[10px] text-gray-500">{config.nightVision ? 'ACTIVE' : 'STANDBY'}</span>
+          </Row>
+        </Section>
+
+        <Section title="Operator Profile" icon={User}>
+          <Row label="Call Sign">
+            <input
+              type="text"
+              value={config.callSign}
+              onChange={e => update('callSign', e.target.value)}
+              className="bg-black border border-military-green/40 text-white text-xs px-2 py-1 w-36 focus:outline-none focus:border-military-green tracking-wider uppercase"
+            />
+          </Row>
+          <Row label="Operator ID">
+            <input
+              type="text"
+              value={config.operatorId}
+              onChange={e => update('operatorId', e.target.value)}
+              className="bg-black border border-military-green/40 text-white text-xs px-2 py-1 w-36 focus:outline-none focus:border-military-green tracking-wider"
+            />
+          </Row>
+          <Row label="Encryption">
+            {['AES-128', 'AES-256', 'AES-512'].map(enc => (
+              <button
+                key={enc}
+                onClick={() => update('encryptionLevel', enc)}
+                className={`text-[9px] px-2 py-0.5 border uppercase tracking-wider transition-colors ${
+                  config.encryptionLevel === enc
+                    ? 'border-military-green bg-military-green/20 text-military-green'
+                    : 'border-gray-700 text-gray-500 hover:border-gray-500'
+                }`}
+              >{enc}</button>
+            ))}
+          </Row>
+        </Section>
+
+        {/* System Info */}
+        <div className="mt-4 p-3 bg-black/40 border border-military-green/20 text-[10px] text-gray-600 font-mono space-y-1">
+          <div className="flex justify-between"><span>BSC-DOP VERSION</span><span className="text-gray-500">v2.4.1-ALPHA</span></div>
+          <div className="flex justify-between"><span>BUILD</span><span className="text-gray-500">2025.05.14</span></div>
+          <div className="flex justify-between"><span>CLASSIFICATION</span><span className="text-military-red">TOP SECRET</span></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
