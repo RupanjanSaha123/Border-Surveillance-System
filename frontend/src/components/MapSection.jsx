@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import '../styles/map-overrides.css';
 import { Crosshair, Copy, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -50,12 +51,16 @@ const MapSection = ({ mapCenter }) => {
     { id: 3, lat: 32.45, lng: 76.60, name: 'DRONE-CHARLIE' },
   ]);
 
-  const handleMapClick = (e) => {
-    setSelectedPoint(e.latlng);
+  // SECURITY FIX: Use useMapEvents hook instead of onClick prop on MapContainer
+  const MapClickHandler = () => {
+    useMapEvents({ click: (e) => setSelectedPoint(e.latlng) });
+    return null;
   };
 
+  // FIX: Use real sector name from mapCenter if available
   const copyToClipboard = (lat, lng) => {
-    const msg = `ALERT — Sector Sector-Name | Lat: ${lat.toFixed(4)} Lng: ${lng.toFixed(4)} | Threat: Unidentified Movement | Time: ${format(new Date(), 'HH:mm:ss')} IST`;
+    const sector = mapCenter?.sector ?? 'UNKNOWN';
+    const msg = `ALERT — Sector ${sector} | Lat: ${lat.toFixed(4)} Lng: ${lng.toFixed(4)} | Threat: Unidentified Movement | Time: ${format(new Date(), 'HH:mm:ss')} IST`;
     navigator.clipboard.writeText(msg);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -74,19 +79,19 @@ const MapSection = ({ mapCenter }) => {
       </div>
 
       <div className="flex-1 relative z-0">
-        <MapContainer 
-          center={defaultCenter} 
-          zoom={11} 
+        <MapContainer
+          center={defaultCenter}
+          zoom={11}
           className="w-full h-full"
           zoomControl={false}
-          onClick={handleMapClick}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
-          
+
           <MapController center={mapCenter} />
+          <MapClickHandler />
 
           {/* Alert Marker */}
           {mapCenter && (
@@ -148,21 +153,6 @@ const MapSection = ({ mapCenter }) => {
           ))}
         </MapContainer>
 
-        {/* Global style overrides for Leaflet Popups to match theme */}
-        <style dangerouslySetInnerHTML={{__html: `
-          .leaflet-popup-content-wrapper {
-            background-color: transparent !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-          }
-          .leaflet-popup-tip {
-            background-color: #0d1117 !important;
-            border: 1px solid #4a6741;
-          }
-          .leaflet-popup-content {
-            margin: 0 !important;
-          }
-        `}} />
       </div>
     </div>
   );

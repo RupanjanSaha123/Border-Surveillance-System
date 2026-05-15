@@ -5,7 +5,7 @@ import CameraGrid from './CameraGrid';
 import AlertSystem from './AlertSystem';
 import MapSection from './MapSection';
 
-const Dashboard = ({ onLogout }) => {
+const Dashboard = ({ session, onLogout }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState('cameras'); // 'cameras' | 'map' | 'alert-history' | 'settings'
   const [mapCenter, setMapCenter] = useState(null); // Used to zoom into alert
@@ -57,7 +57,13 @@ const Dashboard = ({ onLogout }) => {
   const handleViewOnMap = () => {
     setIsAlertModalOpen(false);
     setActiveTab('map');
-    setMapCenter({ lat: parseFloat(currentAlert.lat), lng: parseFloat(currentAlert.lng), id: currentAlert.id });
+    // Pass sector info so MapSection can use it in the copy-to-clipboard string
+    setMapCenter({ lat: parseFloat(currentAlert.lat), lng: parseFloat(currentAlert.lng), id: currentAlert.id, sector: currentAlert.sector });
+  };
+
+  const handleLogout = () => {
+    const confirmed = window.confirm('⚠ Terminate operator session?\n\nAll unsaved settings will be lost. Proceed with logout?');
+    if (confirmed) onLogout();
   };
 
   return (
@@ -84,8 +90,8 @@ const Dashboard = ({ onLogout }) => {
             </div>
           </div>
           
-          <button 
-            onClick={onLogout}
+          <button
+            onClick={handleLogout}
             className="flex items-center gap-2 text-military-red hover:bg-military-red/10 px-3 py-1.5 border border-military-red/30 transition-colors"
           >
             <Power className="w-4 h-4" />
@@ -152,8 +158,8 @@ const Dashboard = ({ onLogout }) => {
               <User className="w-5 h-5 text-military-green" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white uppercase tracking-wider">CMDR. RAJPUT</div>
-              <div className="text-[10px] text-military-green tracking-widest uppercase">ID: IND-8839</div>
+              <div className="text-xs font-bold text-white uppercase tracking-wider">{session?.callSign ?? 'OPERATOR'}</div>
+              <div className="text-[10px] text-military-green tracking-widest uppercase">ID: {session?.officerId ?? '---'}</div>
             </div>
           </div>
         </aside>
@@ -377,7 +383,13 @@ const SettingsPanel = () => {
   };
 
   const [config, setConfig] = useState(() => {
-    try { return { ...defaults, ...JSON.parse(localStorage.getItem('bsc-settings') || '{}') }; }
+    try {
+      const saved = JSON.parse(localStorage.getItem('bsc-settings') || '{}');
+      // SECURITY FIX: Only restore non-sensitive operational preferences
+      const safeKeys = ['dronesOnline', 'alertSensitivity', 'scanInterval', 'audioAlerts', 'autoTrack', 'nightVision', 'streamQuality', 'encryptionLevel'];
+      const safeRestored = Object.fromEntries(Object.entries(saved).filter(([k]) => safeKeys.includes(k)));
+      return { ...defaults, ...safeRestored };
+    }
     catch { return defaults; }
   });
   const [saved, setSaved] = useState(false);
@@ -385,7 +397,9 @@ const SettingsPanel = () => {
   const update = (key, val) => setConfig(prev => ({ ...prev, [key]: val }));
 
   const saveSettings = () => {
-    localStorage.setItem('bsc-settings', JSON.stringify(config));
+    // SECURITY FIX: Only persist non-sensitive preferences — never operator identity
+    const { dronesOnline, alertSensitivity, scanInterval, audioAlerts, autoTrack, nightVision, streamQuality, encryptionLevel } = config;
+    localStorage.setItem('bsc-settings', JSON.stringify({ dronesOnline, alertSensitivity, scanInterval, audioAlerts, autoTrack, nightVision, streamQuality, encryptionLevel }));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };

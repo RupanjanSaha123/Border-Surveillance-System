@@ -1,0 +1,17 @@
+/* ─── Leaflet Popup Theme Overrides ───────────────────────────────────────── */
+/* Replaces the dangerouslySetInnerHTML style injection in MapSection.jsx     */
+
+.leaflet-popup-content-wrapper {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-tip {
+  background-color: #0d1117 !important;
+  border: 1px solid #4a6741;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+}

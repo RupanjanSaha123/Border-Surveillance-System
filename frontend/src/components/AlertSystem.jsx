@@ -1,49 +1,166 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ShieldAlert, Crosshair } from 'lucide-react';
+import { ShieldAlert, Radio, Zap, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 
-const AlertSystem = ({ alerts }) => {
-  const [gpsData, setGpsData] = useState({ lat: '32.4500', lng: '75.6800' });
+/* ─── Mission Status Block ───────────────────────────────────────────────── */
+const MissionStatus = ({ alerts }) => {
+  const [uptime, setUptime] = useState(0); // seconds since mount
 
-  // Mock live GPS readout updates
   useEffect(() => {
-    const timer = setInterval(() => {
-      setGpsData({
-        lat: (32.4500 + (Math.random() - 0.5) * 0.005).toFixed(4),
-        lng: (75.6800 + (Math.random() - 0.5) * 0.005).toFixed(4)
-      });
-    }, 2000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setUptime(s => s + 1), 1000);
+    return () => clearInterval(t);
   }, []);
 
+  const formatUptime = (s) => {
+    const h = String(Math.floor(s / 3600)).padStart(2, '0');
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+    const sec = String(s % 60).padStart(2, '0');
+    return `${h}:${m}:${sec}`;
+  };
+
+  const critical = alerts.filter(a => a.type === 'critical').length;
+  const warning  = alerts.filter(a => a.type === 'warning').length;
+  const total    = alerts.length;
+
+  // Derive overall threat level 0–4
+  const threatLevel = total === 0 ? 0
+    : critical >= 5 ? 4
+    : critical >= 3 ? 3
+    : critical >= 1 ? 2
+    : warning  >= 1 ? 1
+    : 0;
+
+  const threatLabels = ['CLEAR', 'CAUTION', 'ELEVATED', 'HIGH', 'CRITICAL'];
+  const threatColors = [
+    'text-military-green',
+    'text-yellow-400',
+    'text-military-amber',
+    'text-orange-400',
+    'text-military-red',
+  ];
+  const threatBarColors = [
+    'bg-military-green',
+    'bg-yellow-400',
+    'bg-military-amber',
+    'bg-orange-400',
+    'bg-military-red',
+  ];
+
+  const sectors = ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'];
+  const sectorAlerts = useMemo(() =>
+    sectors.map(s => ({
+      name: s,
+      critical: alerts.filter(a => a.sector === s && a.type === 'critical').length,
+      warning:  alerts.filter(a => a.sector === s && a.type === 'warning').length,
+    })),
+  [alerts]);
+
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden">
-      {/* Top GPS HUD Readout */}
-      <div className="p-4 bg-military-panel border-b border-military-green shadow-[0_4px_20px_rgba(0,0,0,0.5)] z-10 shrink-0">
-        <h3 className="text-[10px] text-military-green mb-1 tracking-widest uppercase flex items-center gap-2">
-          <Crosshair className="w-3 h-3" /> Live Telemetry
+    <div className="shrink-0 border-b border-military-green bg-military-panel">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-military-green/20">
+        <h3 className="text-[10px] text-military-green tracking-widest uppercase flex items-center gap-2">
+          <Radio className="w-3 h-3 animate-pulse" /> Mission Status
         </h3>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-black border border-military-green/30 p-2">
-            <div className="text-[8px] text-gray-500 uppercase">Latitude</div>
-            <div className="text-military-amber font-mono text-sm tracking-wider">{gpsData.lat} N</div>
-          </div>
-          <div className="bg-black border border-military-green/30 p-2">
-            <div className="text-[8px] text-gray-500 uppercase">Longitude</div>
-            <div className="text-military-amber font-mono text-sm tracking-wider">{gpsData.lng} E</div>
-          </div>
+        <div className="flex items-center gap-1 text-[10px] text-gray-500 font-mono">
+          <Clock className="w-3 h-3" />
+          <span>{formatUptime(uptime)}</span>
         </div>
       </div>
 
-      {/* Alert Log */}
+      <div className="px-4 py-3 space-y-3">
+        {/* ── Threat Level Gauge ── */}
+        <div>
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-[9px] text-gray-500 uppercase tracking-widest">Threat Level</span>
+            <span className={`text-[10px] font-bold font-mono tracking-widest ${threatColors[threatLevel]}`}>
+              {threatLabels[threatLevel]}
+            </span>
+          </div>
+          {/* 5-segment bar */}
+          <div className="flex gap-0.5">
+            {[0, 1, 2, 3, 4].map(i => (
+              <div
+                key={i}
+                className={`h-2 flex-1 transition-all duration-500 ${
+                  i <= threatLevel
+                    ? threatBarColors[threatLevel]
+                    : 'bg-gray-800'
+                } ${i <= threatLevel && threatLevel === 4 ? 'animate-pulse' : ''}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Alert Counts ── */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-black/50 border border-military-green/20 p-2 text-center">
+            <div className="text-[8px] text-gray-500 uppercase tracking-wider mb-0.5">Total</div>
+            <div className="text-military-green font-mono font-bold text-sm">{total}</div>
+          </div>
+          <div className="bg-black/50 border border-military-red/20 p-2 text-center">
+            <div className="text-[8px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-1">
+              <Zap className="w-2 h-2 text-military-red" />Critical
+            </div>
+            <div className={`font-mono font-bold text-sm ${critical > 0 ? 'text-military-red' : 'text-gray-600'}`}>{critical}</div>
+          </div>
+          <div className="bg-black/50 border border-military-amber/20 p-2 text-center">
+            <div className="text-[8px] text-gray-500 uppercase tracking-wider mb-0.5 flex items-center justify-center gap-1">
+              <AlertTriangle className="w-2 h-2 text-military-amber" />Warn
+            </div>
+            <div className={`font-mono font-bold text-sm ${warning > 0 ? 'text-military-amber' : 'text-gray-600'}`}>{warning}</div>
+          </div>
+        </div>
+
+        {/* ── Per-Sector Activity Bars ── */}
+        <div>
+          <div className="text-[9px] text-gray-500 uppercase tracking-widest mb-2">Sector Activity</div>
+          <div className="space-y-1.5">
+            {sectorAlerts.map(({ name, critical: c, warning: w }) => {
+              const hasCritical = c > 0;
+              const hasAny = c + w > 0;
+              return (
+                <div key={name} className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-gray-400 w-16 shrink-0">{name}</span>
+                  <div className="flex-1 h-1.5 bg-gray-800 relative overflow-hidden">
+                    {hasAny && (
+                      <div
+                        className={`absolute left-0 top-0 h-full transition-all duration-700 ${hasCritical ? 'bg-military-red' : 'bg-military-amber'}`}
+                        style={{ width: `${Math.min(100, (c + w) * 15)}%` }}
+                      />
+                    )}
+                  </div>
+                  {hasAny ? (
+                    <span className={`text-[9px] font-mono w-4 text-right ${hasCritical ? 'text-military-red' : 'text-military-amber'}`}>{c + w}</span>
+                  ) : (
+                    <CheckCircle2 className="w-3 h-3 text-military-green/40" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── AlertSystem ─────────────────────────────────────────────────────────── */
+const AlertSystem = ({ alerts }) => {
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden">
+      {/* Mission Status Block (replaces old Live Telemetry) */}
+      <MissionStatus alerts={alerts} />
+
+      {/* Threat Log */}
       <div className="flex-1 flex flex-col min-h-0">
         <div className="p-4 pb-2 border-b border-military-green/30 shrink-0">
           <h3 className="text-xs text-white tracking-widest uppercase font-bold flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-military-amber" /> 
+            <ShieldAlert className="w-4 h-4 text-military-amber" />
             Threat Log
           </h3>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {alerts.length === 0 ? (
             <div className="text-center text-gray-600 text-xs py-8 uppercase tracking-widest font-mono">
@@ -51,13 +168,13 @@ const AlertSystem = ({ alerts }) => {
             </div>
           ) : (
             alerts.map((alert) => (
-              <div 
-                key={alert.id} 
+              <div
+                key={alert.id}
                 className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group
                   ${alert.type === 'critical' ? 'border-military-red hover:bg-military-red/10' : 'border-military-amber hover:bg-military-amber/10'}`}
               >
-                {/* Decorative scanning highlight */}
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                {/* Scanning highlight */}
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
                 <div className="flex justify-between items-start mb-1 relative z-10">
                   <span className={`font-bold tracking-widest ${alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'}`}>
