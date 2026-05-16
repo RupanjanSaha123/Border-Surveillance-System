@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw } from 'lucide-react';
+import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw, CheckCircle2, Circle } from 'lucide-react';
 import { format } from 'date-fns';
 import CameraGrid from './CameraGrid';
 import AlertSystem from './AlertSystem';
@@ -11,6 +11,7 @@ const Dashboard = ({ session, onLogout }) => {
   const [activeTab, setActiveTab] = useState('cameras'); // 'cameras' | 'map' | 'alert-history' | 'settings'
   const [mapCenter, setMapCenter] = useState(null); // Used to zoom into alert
   const [alerts, setAlerts] = useState([]);
+  const [resolvedAlerts, setResolvedAlerts] = useState(new Set());
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [currentAlert, setCurrentAlert] = useState(null);
   const [systemHealth, setSystemHealth] = useState({
@@ -18,6 +19,13 @@ const Dashboard = ({ session, onLogout }) => {
     sat_link: 'SECURE',
     power_level: 98,
   });
+
+  const toggleResolved = (id) =>
+    setResolvedAlerts(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   // ── Clock ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -178,27 +186,43 @@ const Dashboard = ({ session, onLogout }) => {
 
           <nav className="flex-1 p-4 space-y-2">
             <h3 className="text-xs text-military-green mb-3 tracking-widest uppercase">Navigation</h3>
-            <button 
+            <button
               onClick={() => setActiveTab('cameras')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'cameras' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'cameras'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <Crosshair className="w-4 h-4" /> Cameras
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('map')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'map' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'map'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <MapIcon className="w-4 h-4" /> Tac-Map
             </button>
             <button
               onClick={() => setActiveTab('alert-history')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'alert-history' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'alert-history'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <ShieldAlert className="w-4 h-4" /> Alert History
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'settings' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'settings'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <Settings className="w-4 h-4" /> Settings
             </button>
@@ -218,14 +242,14 @@ const Dashboard = ({ session, onLogout }) => {
         {/* Center Main Panel (60%) */}
         <main className="flex-1 w-[60%] flex flex-col relative z-0 overflow-hidden">
           {activeTab === 'cameras' && <CameraGrid />}
-          {activeTab === 'map' && <MapSection mapCenter={mapCenter} />}
-          {activeTab === 'alert-history' && <AlertHistoryPanel alerts={alerts} />}
+          {activeTab === 'map' && <MapSection mapCenter={mapCenter} resolvedAlerts={resolvedAlerts} />}
+          {activeTab === 'alert-history' && <AlertHistoryPanel alerts={alerts} resolvedAlerts={resolvedAlerts} toggleResolved={toggleResolved} />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>
 
         {/* Right Panel (25%) */}
         <aside className="w-[25%] min-w-[300px] border-l border-military-green bg-military-panel/90 flex flex-col z-10">
-          <AlertSystem alerts={alerts} session={session} />
+          <AlertSystem alerts={alerts} session={session} resolvedAlerts={resolvedAlerts} toggleResolved={toggleResolved} />
         </aside>
       </div>
 
@@ -271,7 +295,7 @@ const Dashboard = ({ session, onLogout }) => {
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button 
                   onClick={handleViewOnMap}
                   className="flex-1 bg-military-red/20 border border-military-red text-military-red py-3 font-bold tracking-widest uppercase hover:bg-military-red hover:text-white transition-all flex justify-center items-center gap-2 group"
@@ -279,9 +303,24 @@ const Dashboard = ({ session, onLogout }) => {
                   <MapIcon className="w-5 h-5 group-hover:animate-bounce" />
                   VIEW ON MAP
                 </button>
+                {/* ── Operation Success tick ── */}
+                <button
+                  onClick={() => {
+                    toggleResolved(currentAlert.id);
+                    setIsAlertModalOpen(false);
+                  }}
+                  className={`flex-1 py-3 font-bold tracking-widest uppercase border transition-all flex justify-center items-center gap-2 ${
+                    resolvedAlerts.has(currentAlert.id)
+                      ? 'border-military-green bg-military-green/20 text-military-green'
+                      : 'border-military-green/40 text-military-green/60 hover:bg-military-green/10 hover:border-military-green hover:text-military-green'
+                  }`}
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  {resolvedAlerts.has(currentAlert.id) ? 'RESOLVED ✓' : 'MARK RESOLVED'}
+                </button>
                 <button 
                   onClick={() => setIsAlertModalOpen(false)}
-                  className="px-8 border border-gray-600 text-gray-400 py-3 font-bold tracking-widest uppercase hover:bg-gray-800 hover:text-white transition-colors"
+                  className="px-6 border border-gray-600 text-gray-400 py-3 font-bold tracking-widest uppercase hover:bg-gray-800 hover:text-white transition-colors"
                 >
                   DISMISS
                 </button>
@@ -295,7 +334,7 @@ const Dashboard = ({ session, onLogout }) => {
 };
 
 /* ─── Alert History Panel ─────────────────────────────────────────── */
-const AlertHistoryPanel = ({ alerts }) => {
+const AlertHistoryPanel = ({ alerts, resolvedAlerts, toggleResolved }) => {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all'); // 'all' | 'critical' | 'warning'
   const [filterSector, setFilterSector] = useState('all');
@@ -383,33 +422,53 @@ const AlertHistoryPanel = ({ alerts }) => {
           <table className="w-full text-xs font-mono border-collapse">
             <thead className="sticky top-0 bg-military-panel border-b border-military-green/40">
               <tr>
-                {['Time', 'Type', 'Sector', 'Threat', 'Source', 'Coordinates'].map(h => (
-                  <th key={h} className="text-left text-[10px] text-military-green tracking-widest uppercase px-4 py-2 font-normal">{h}</th>
+                {['', 'Time', 'Type', 'Sector', 'Threat', 'Source', 'Coords'].map(h => (
+                  <th key={h} className="text-left text-[10px] text-military-green tracking-widest uppercase px-3 py-2 font-normal">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((alert, i) => (
-                <tr
-                  key={alert.id}
-                  className={`border-b border-military-green/10 transition-colors hover:bg-military-green/5 ${
-                    i % 2 === 0 ? 'bg-black/20' : ''
-                  }`}
-                >
-                  <td className="px-4 py-2 text-gray-400 whitespace-nowrap">{format(new Date(alert.timestamp), 'HH:mm:ss')}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-1.5 py-0.5 border uppercase tracking-wider text-[9px] ${
-                      alert.type === 'critical'
-                        ? 'border-military-red/60 text-military-red bg-military-red/10'
-                        : 'border-military-amber/60 text-military-amber bg-military-amber/10'
-                    }`}>{alert.type}</span>
-                  </td>
-                  <td className="px-4 py-2 text-white tracking-widest">{alert.sector}</td>
-                  <td className="px-4 py-2 text-gray-300">{alert.threat}</td>
-                  <td className="px-4 py-2 text-military-green">{alert.camera}</td>
-                  <td className="px-4 py-2 text-military-amber">{alert.lat}, {alert.lng}</td>
-                </tr>
-              ))}
+              {filtered.map((alert, i) => {
+                const resolved = resolvedAlerts.has(alert.id);
+                return (
+                  <tr
+                    key={alert.id}
+                    className={`border-b border-military-green/10 transition-colors hover:bg-military-green/5 ${
+                      resolved ? 'opacity-60' : i % 2 === 0 ? 'bg-black/20' : ''
+                    }`}
+                  >
+                    {/* ── Resolved checkbox ── */}
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => toggleResolved(alert.id)}
+                        title={resolved ? 'Mark as unresolved' : 'Mark operation resolved'}
+                        className="group flex items-center justify-center"
+                      >
+                        {resolved
+                          ? <CheckCircle2 className="w-4 h-4 text-military-green" />
+                          : <Circle className="w-4 h-4 text-gray-600 group-hover:text-military-green/60 transition-colors" />
+                        }
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{format(new Date(alert.timestamp), 'HH:mm:ss')}</td>
+                    <td className="px-3 py-2">
+                      <span className={`px-1.5 py-0.5 border uppercase tracking-wider text-[9px] ${
+                        resolved
+                          ? 'border-military-green/40 text-military-green/70 bg-military-green/10'
+                          : alert.type === 'critical'
+                            ? 'border-military-red/60 text-military-red bg-military-red/10'
+                            : 'border-military-amber/60 text-military-amber bg-military-amber/10'
+                      }`}>
+                        {resolved ? 'resolved' : alert.type}
+                      </span>
+                    </td>
+                    <td className={`px-3 py-2 tracking-widest ${resolved ? 'text-gray-500 line-through' : 'text-white'}`}>{alert.sector}</td>
+                    <td className={`px-3 py-2 ${resolved ? 'text-gray-500' : 'text-gray-300'}`}>{alert.threat}</td>
+                    <td className={`px-3 py-2 ${resolved ? 'text-gray-600' : 'text-military-green'}`}>{alert.camera}</td>
+                    <td className={`px-3 py-2 ${resolved ? 'text-gray-600' : 'text-military-amber'}`}>{alert.lat}, {alert.lng}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

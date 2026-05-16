@@ -147,16 +147,19 @@ const MissionStatus = ({ alerts }) => {
 };
 
 /* ─── AlertSystem ─────────────────────────────────────────────────────────── */
-const AlertSystem = ({ alerts, session }) => {
+const AlertSystem = ({ alerts, session, resolvedAlerts = new Set(), toggleResolved }) => {
   const handleAcknowledge = async (id) => {
     try {
       await acknowledgeAlert(id, session?.callSign || 'OPERATOR');
-      // Note: The UI will update when the next SSE event comes or if we refresh alerts
-      // For immediate feedback, we could optimistically update local state if Dashboard provided a callback
+      // Also mark as resolved locally for consistency
+      if (toggleResolved && !resolvedAlerts.has(id)) {
+        toggleResolved(id);
+      }
     } catch (err) {
       console.error('Failed to acknowledge alert', err);
     }
   };
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Mission Status Block (replaces old Live Telemetry) */}
@@ -177,42 +180,68 @@ const AlertSystem = ({ alerts, session }) => {
               System Clear // No active threats
             </div>
           ) : (
-            alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group
-                  ${alert.type === 'critical' ? 'border-military-red hover:bg-military-red/10' : 'border-military-amber hover:bg-military-amber/10'}
-                  ${alert.acknowledged ? 'opacity-50' : ''}`}
-              >
-                {/* Scanning highlight */}
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            alerts.map((alert) => {
+              const resolved = resolvedAlerts.has(alert.id);
+              const acknowledged = alert.acknowledged || resolved;
+              
+              return (
+                <div
+                  key={alert.id}
+                  className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group transition-opacity ${
+                    resolved || alert.acknowledged
+                      ? 'border-military-green/50 opacity-50'
+                      : alert.type === 'critical'
+                        ? 'border-military-red hover:bg-military-red/10'
+                        : 'border-military-amber hover:bg-military-amber/10'
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                <div className="flex justify-between items-start mb-1 relative z-10">
-                  <span className={`font-bold tracking-widest ${alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'}`}>
-                    SEC-{alert.sector}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    {alert.acknowledged && <Check className="w-3 h-3 text-military-green" />}
-                    <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                  <div className="flex justify-between items-start mb-1 relative z-10">
+                    <span className={`font-bold tracking-widest ${
+                      resolved || alert.acknowledged ? 'text-military-green/60 line-through'
+                      : alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'
+                    }`}>
+                      SEC-{alert.sector}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                      {(resolved || alert.acknowledged) && <Check className="w-3 h-3 text-military-green" />}
+                    </div>
+                  </div>
+                  <div className={`relative z-10 ${resolved || alert.acknowledged ? 'text-gray-500' : 'text-white'}`}>{alert.threat}</div>
+                  <div className="flex justify-between items-end mt-2 relative z-10">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-military-green">{alert.camera}</span>
+                      {resolved || alert.acknowledged ? (
+                        <span className="text-[9px] text-military-green/70 font-bold tracking-widest">✓ RESOLVED</span>
+                      ) : (
+                        <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
+                      )}
+                    </div>
+                    
+                    {!acknowledged && (
+                      <button
+                        onClick={() => handleAcknowledge(alert.id)}
+                        className="text-[9px] px-2 py-1 border border-military-green/50 text-military-green hover:bg-military-green hover:text-black transition-colors uppercase tracking-widest"
+                      >
+                        Ack
+                      </button>
+                    )}
+
+                    {acknowledged && toggleResolved && (
+                      <button
+                        onClick={() => toggleResolved(alert.id)}
+                        title="Unmark resolved"
+                        className="flex items-center justify-center p-1 hover:bg-white/5 rounded"
+                      >
+                         <CheckCircle2 className="w-3.5 h-3.5 text-military-green" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="text-white relative z-10">{alert.threat}</div>
-                <div className="flex justify-between items-end mt-2 relative z-10">
-                  <div className="flex flex-col">
-                    <span className="text-[9px] text-military-green">{alert.camera}</span>
-                    <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
-                  </div>
-                  {!alert.acknowledged && (
-                    <button
-                      onClick={() => handleAcknowledge(alert.id)}
-                      className="text-[9px] px-2 py-1 border border-military-green/50 text-military-green hover:bg-military-green hover:text-black transition-colors uppercase tracking-widest"
-                    >
-                      Ack
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

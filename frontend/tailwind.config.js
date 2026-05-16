@@ -6,11 +6,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        'military-bg': '#0a0c0f',
-        'military-panel': '#0d1117',
-        'military-green': '#4a6741',
-        'military-amber': '#f59e0b',
-        'military-red': '#ef4444',
+        'military-bg':     '#243026',
+        'military-panel':  '#1e2921',
+        'military-green':  '#3C4A3B',
+        'military-amber':  '#8B8F74',
+        'military-red':    '#ef4444',
       },
       fontFamily: {
         mono: ['"JetBrains Mono"', '"Courier New"', 'monospace'],
