@@ -205,7 +205,7 @@ const ThreatMarker = ({ mapCenter }) => {
 };
 
 // ── MapSection ─────────────────────────────────────────────────────────────────
-const MapSection = ({ mapCenter }) => {
+const MapSection = ({ mapCenter, resolvedAlerts }) => {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
 
@@ -224,7 +224,7 @@ const MapSection = ({ mapCenter }) => {
         {WAYPOINTS.map((wp, i) => <WpDot key={i} pos={wp} visited={i <= segIdx}/>)}
         <Marker position={pos} icon={DRONE_ICON}/>
         {/* Threat zone marker — auto-placed when alert fires */}
-        {mapCenter && <ThreatMarker mapCenter={mapCenter}/>}
+        {mapCenter && (!resolvedAlerts || !resolvedAlerts.has(mapCenter.id)) && <ThreatMarker mapCenter={mapCenter}/>}
       </MapContainer>
 
       {/* ── Corner brackets ── */}
@@ -235,9 +235,6 @@ const MapSection = ({ mapCenter }) => {
         const sx = i % 2 === 0 ? 1 : -1, sy = i < 2 ? 1 : -1;
         return (
           <svg key={i} width="28" height="28" style={{ position:'absolute', ...style, zIndex:600, pointerEvents:'none' }} viewBox="0 0 28 28">
-            <polyline points={`${14+sx*14},0 ${14-sx*14},0 ${14-sx*14},${28} `}
-              fill="none" stroke="#4ade80" strokeWidth="1.5" opacity="0.65"
-              points={`${sx===1?'26,2 2,2 2,26':'2,2 26,2 26,26'}`}/>
             <polyline fill="none" stroke="#8B8F74" strokeWidth="1.5" opacity="0.65"
               points={sx===1 && sy===1  ? '24,2 2,2 2,24'
                     : sx===-1 && sy===1  ? '4,2 26,2 26,24'
@@ -301,7 +298,7 @@ const MapSection = ({ mapCenter }) => {
           <div style={{ width:7, height:7, borderRadius:'50%', background:'#8B8F74' }}/>
           <span style={{ fontSize:8, color:'#8B8F74', letterSpacing:'0.2em' }}>DRONE-ALPHA · ACTIVE PATROL</span>
         </div>
-        {mapCenter ? (
+        {mapCenter && (!resolvedAlerts || !resolvedAlerts.has(mapCenter.id)) ? (
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ width:7, height:7, borderRadius:'50%', background:'#ef4444', animation:'pulse 1s infinite' }}/>
             <span style={{ fontSize:8, color:'#ef4444', letterSpacing:'0.2em' }}>

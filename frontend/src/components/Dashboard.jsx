@@ -191,7 +191,7 @@ const Dashboard = ({ session, onLogout }) => {
         {/* Center Main Panel (60%) */}
         <main className="flex-1 w-[60%] flex flex-col relative z-0 overflow-hidden">
           {activeTab === 'cameras' && <CameraGrid />}
-          {activeTab === 'map' && <MapSection mapCenter={mapCenter} />}
+          {activeTab === 'map' && <MapSection mapCenter={mapCenter} resolvedAlerts={resolvedAlerts} />}
           {activeTab === 'alert-history' && <AlertHistoryPanel alerts={alerts} resolvedAlerts={resolvedAlerts} toggleResolved={toggleResolved} />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>
