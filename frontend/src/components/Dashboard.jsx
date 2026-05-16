@@ -127,27 +127,43 @@ const Dashboard = ({ session, onLogout }) => {
 
           <nav className="flex-1 p-4 space-y-2">
             <h3 className="text-xs text-military-green mb-3 tracking-widest uppercase">Navigation</h3>
-            <button 
+            <button
               onClick={() => setActiveTab('cameras')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'cameras' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'cameras'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <Crosshair className="w-4 h-4" /> Cameras
             </button>
-            <button 
+            <button
               onClick={() => setActiveTab('map')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'map' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'map'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <MapIcon className="w-4 h-4" /> Tac-Map
             </button>
             <button
               onClick={() => setActiveTab('alert-history')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'alert-history' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'alert-history'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <ShieldAlert className="w-4 h-4" /> Alert History
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-colors border-l-2 ${activeTab === 'settings' ? 'border-military-amber bg-military-green/10 text-white' : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'}`}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'settings'
+                  ? 'border-military-amber bg-military-green/15 text-white shadow-[inset_3px_0_10px_rgba(245,158,11,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
             >
               <Settings className="w-4 h-4" /> Settings
             </button>
