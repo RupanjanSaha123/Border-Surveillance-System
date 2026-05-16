@@ -170,3 +170,83 @@ export async function updateSettings(patch) {
 export async function fetchStatus() {
   return apiFetch('/api/status');
 }
+
+// ─── AI Detection ─────────────────────────────────────────────────────────────
+
+export async function registerAICamera({ camera_id, url, sector }) {
+  return apiFetch('/api/detection/cameras', {
+    method: 'POST',
+    body: JSON.stringify({ camera_id, url, sector }),
+  });
+}
+
+export async function unregisterAICamera(cameraId) {
+  return apiFetch(`/api/detection/cameras/${cameraId}`, { method: 'DELETE' });
+}
+
+export async function fetchAICameras() {
+  return apiFetch('/api/detection/cameras');
+}
+
+export async function fetchAIStatus() {
+  return apiFetch('/api/detection/status');
+}
+
+export async function fetchAIResults() {
+  return apiFetch('/api/detection/results');
+}
+
+export async function updateAIConfig(patch) {
+  return apiFetch('/api/detection/config', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/**
+ * Get the AI-annotated stream URL for a camera.
+ * This replaces the raw feed with bounding boxes + detection HUD.
+ */
+export function getAIStreamUrl(cameraId) {
+  return `${BASE}/api/detection/stream/${cameraId}`;
+}
+
+/**
+ * WebSocket for real-time AI detection data.
+ * @param {(data: object) => void} onDetection  called with detection updates
+ * @returns {() => void}  close fn
+ */
+export function subscribeDetections(onDetection) {
+  const token = getToken();
+  const wsBase = BASE.replace(/^http/, 'ws');
+  const ws = new WebSocket(`${wsBase}/api/detection/ws?token=${token}`);
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      onDetection(msg);
+    } catch { /* ignore */ }
+  };
+
+  ws.onerror = () => ws.close();
+
+  return () => ws.close();
+}
+
+// ─── AI Detection History (Phase 4) ───────────────────────────────────────────
+
+export async function fetchDetectionHistory({ camera_id, limit = 50, skip = 0, fire_only = false, weapons_only = false } = {}) {
+  const params = new URLSearchParams({ limit, skip });
+  if (camera_id) params.set('camera_id', camera_id);
+  if (fire_only) params.set('fire_only', 'true');
+  if (weapons_only) params.set('weapons_only', 'true');
+  return apiFetch(`/api/detection/history?${params}`);
+}
+
+export async function fetchDetectionStats(hours = 24) {
+  return apiFetch(`/api/detection/history/stats?hours=${hours}`);
+}
+
+export async function tuneAIPerformance() {
+  return apiFetch('/api/detection/performance/tune', { method: 'POST' });
+}

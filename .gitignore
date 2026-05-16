@@ -32,5 +32,12 @@ dist/
 build/
 .next/
 
-# Logs
-*.log
+# AI Models
+*.pt
+*_openvino_model/
+backend/models/
+
+# Database
+*.db
+*.sqlite3
+sqlite_db/

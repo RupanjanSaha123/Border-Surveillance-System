@@ -13,54 +13,71 @@ async def frame_generator(url: str):
     """
     Captures frames from the given URL using OpenCV.
     Supports RTSP, HTTP MJPEG, and other formats handled by OpenCV.
+    Yields a 'No Signal' placeholder if the stream fails.
     """
-    print(f"[*] Starting camera stream: {url}")
+    print(f"[*] Initializing camera stream: {url}")
     loop = asyncio.get_event_loop()
     
-    # Initialize capture in a separate thread to avoid blocking the event loop
-    cap = await loop.run_in_executor(None, cv2.VideoCapture, url)
-    
-    # Set buffer size to minimum for low latency (especially important for RTSP)
-    if url.startswith("rtsp"):
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    # Create a "No Signal" placeholder frame
+    import numpy as np
+    placeholder_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(placeholder_frame, "NO SIGNAL", (180, 240), 
+                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+    cv2.putText(placeholder_frame, url, (50, 450), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
+    _, placeholder_jpeg = cv2.imencode('.jpg', placeholder_frame)
+    placeholder_bytes = (b'--frame\r\n'
+                         b'Content-Type: image/jpeg\r\n\r\n' + placeholder_jpeg.tobytes() + b'\r\n')
 
+    cap = None
     try:
+        # Initial attempt
+        cap = await loop.run_in_executor(None, cv2.VideoCapture, url)
+        if url.startswith("rtsp"):
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
         retry_count = 0
         while True:
-            # Read frame
-            success, frame = await loop.run_in_executor(None, cap.read)
+            success = False
+            frame = None
+            
+            if cap and cap.isOpened():
+                success, frame = await loop.run_in_executor(None, cap.read)
             
             if not success:
                 retry_count += 1
-                print(f"[!] Stream disconnected for {url}. Attempting reconnect ({retry_count})...")
-                cap.release()
-                await asyncio.sleep(2) # Wait before reconnecting
-                cap = await loop.run_in_executor(None, cv2.VideoCapture, url)
-                if retry_count > 10:
-                    print(f"[ERROR] Persistent failure for {url}. Stopping stream.")
-                    break
+                if retry_count % 50 == 0: # Log every ~2 seconds
+                    print(f"[!] Stream {url} unreachable. Retrying...")
+                
+                # Re-attempt connection occasionally
+                if retry_count % 250 == 0:
+                    if cap: cap.release()
+                    cap = await loop.run_in_executor(None, cv2.VideoCapture, url)
+                
+                yield placeholder_bytes
+                await asyncio.sleep(0.04) # Maintain 25fps even for placeholder
                 continue
 
-            retry_count = 0 # Reset on success
-            
-            # Encode as JPEG
+            retry_count = 0 
             ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
             if not ret:
+                yield placeholder_bytes
                 continue
 
-            # Yield frame in MJPEG format
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
             
-            # Control frame rate (~20-25 FPS)
-            await asyncio.sleep(0.04)
+            await asyncio.sleep(0.03) # ~30 FPS
             
     except asyncio.CancelledError:
-        print(f"[*] Stream cancelled for {url}")
-        cap.release()
+        print(f"[*] Stream task cancelled for {url}")
     except Exception as e:
-        print(f"[ERROR] Streaming error for {url}: {e}")
-        cap.release()
+        print(f"[ERROR] Streaming exception for {url}: {e}")
+    finally:
+        if cap:
+            cap.release()
+            print(f"[*] Released camera resource: {url}")
+
 
 @router.get("/stream")
 async def stream_camera(url: str = Query(..., description="The camera URL (rtsp, http, etc.)")):

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Camera, Maximize2, Minimize2, Wifi, Activity, Lock, Edit3, Check,
-         Crosshair, Thermometer, Wind, Battery, Signal, ShieldAlert, Eye } from 'lucide-react';
+         Crosshair, Thermometer, Wind, Battery, Signal, ShieldAlert, Eye, Cpu, Flame } from 'lucide-react';
 import { format } from 'date-fns';
-import { subscribeDrones } from '../api';
+import { subscribeDrones, registerAICamera, unregisterAICamera, getAIStreamUrl, subscribeDetections } from '../api';
 
 /* ─── Camera definitions ─────────────────────────────────────────────────── */
 const initialCameras = [
@@ -36,7 +36,7 @@ const StatBox = ({ label, value, unit, icon: Icon, color = 'text-military-amber'
 );
 
 /* ─── CameraFeed ──────────────────────────────────────────────────────────── */
-const CameraFeed = ({ cam, isPinned, onTogglePin, droneData, streamIp, onUpdateIp }) => {
+const CameraFeed = ({ cam, isPinned, onTogglePin, droneData, streamIp, onUpdateIp, aiEnabled, onToggleAI, aiDetections }) => {
   const [editingIp, setEditingIp] = useState(false);
   const [draftIp, setDraftIp]     = useState(streamIp);
   const [feedError, setFeedError] = useState(false);
@@ -62,8 +62,27 @@ const CameraFeed = ({ cam, isPinned, onTogglePin, droneData, streamIp, onUpdateI
     : { lat: 0, lng: 0 };
 
   const handleSaveIp = () => {
-    if (draftIp !== streamIp) {
-      onUpdateIp(cam.id, draftIp);
+    let finalIp = draftIp.trim();
+    
+    // Auto-fix common mobile camera app mistakes
+    // If it's just an IP like 10.x.x.x or 192.x.x.x, suggest adding :8080/video
+    const ipRegex = /^(?:http:\/\/)?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+    if (ipRegex.test(finalIp)) {
+      const confirmed = window.confirm(
+        `Your URL "${finalIp}" looks like a direct IP. \n\n` +
+        `Most mobile camera apps (like IP Webcam) require a port and path, usually: \n` +
+        `"${finalIp}:8080/video" \n\n` +
+        `Would you like to use this corrected URL instead?`
+      );
+      if (confirmed) {
+        if (!finalIp.startsWith('http')) finalIp = 'http://' + finalIp;
+        finalIp = finalIp + ':8080/video';
+        setDraftIp(finalIp);
+      }
+    }
+
+    if (finalIp !== streamIp) {
+      onUpdateIp(cam.id, finalIp);
     }
     setEditingIp(false);
   };
@@ -73,16 +92,39 @@ const CameraFeed = ({ cam, isPinned, onTogglePin, droneData, streamIp, onUpdateI
       {/* ── Viewport Header ── */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-10 pointer-events-none">
         <div className="flex items-center gap-2 bg-black/60 px-2 py-1 border border-military-green/30 backdrop-blur-sm">
-          <div className="w-2 h-2 rounded-full bg-military-red animate-blink" />
-          <span className="text-xs text-white font-bold tracking-widest uppercase">LIVE</span>
+          <div className={`w-2 h-2 rounded-full ${aiEnabled ? 'bg-green-400' : 'bg-military-red'} animate-blink`} />
+          <span className="text-xs text-white font-bold tracking-widest uppercase">{aiEnabled ? 'AI' : 'LIVE'}</span>
           <span className="text-[10px] text-military-green font-mono ml-2">{cam.name} — {cam.sector}</span>
+          {/* AI Detection Badges */}
+          {aiEnabled && aiDetections && (
+            <div className="flex items-center gap-1 ml-2">
+              {aiDetections.humans > 0 && <span className="text-[9px] px-1 bg-green-500/20 border border-green-500/40 text-green-400 font-mono">H:{aiDetections.humans}</span>}
+              {aiDetections.vehicles > 0 && <span className="text-[9px] px-1 bg-blue-500/20 border border-blue-500/40 text-blue-400 font-mono">V:{aiDetections.vehicles}</span>}
+              {aiDetections.fire && <span className="text-[9px] px-1 bg-red-500/20 border border-red-500/40 text-red-400 font-mono animate-pulse">🔥</span>}
+              {aiDetections.weapons > 0 && <span className="text-[9px] px-1 bg-red-500/20 border border-red-500/40 text-red-400 font-mono animate-pulse">⚠W:{aiDetections.weapons}</span>}
+            </div>
+          )}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onTogglePin(cam.id); }}
-          className="bg-black/60 p-1 border border-military-green/30 text-military-green hover:text-military-amber hover:border-military-amber transition-colors backdrop-blur-sm pointer-events-auto"
-        >
-          {isPinned ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-1 pointer-events-auto">
+          {/* AI Toggle Button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleAI(cam); }}
+            title={aiEnabled ? 'Disable AI Detection' : 'Enable AI Detection'}
+            className={`bg-black/60 p-1 border backdrop-blur-sm transition-colors ${
+              aiEnabled
+                ? 'border-green-400/50 text-green-400 hover:bg-green-400/20'
+                : 'border-military-green/30 text-gray-500 hover:text-military-amber hover:border-military-amber'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePin(cam.id); }}
+            className="bg-black/60 p-1 border border-military-green/30 text-military-green hover:text-military-amber hover:border-military-amber transition-colors backdrop-blur-sm"
+          >
+            {isPinned ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
       {/* ── Feed Viewport ── */}
@@ -95,10 +137,13 @@ const CameraFeed = ({ cam, isPinned, onTogglePin, droneData, streamIp, onUpdateI
 
           {isConnected && !feedError ? (
             <img 
-              key={streamIp}
-              src={streamIp.includes('/api/cameras/stream') 
-                ? streamIp 
-                : `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/api/cameras/stream?url=${encodeURIComponent(streamIp)}`
+              key={aiEnabled ? `ai-${cam.name}` : streamIp}
+              src={aiEnabled
+                ? getAIStreamUrl(cam.name)
+                : (streamIp.includes('/api/cameras/stream') 
+                  ? streamIp 
+                  : `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/api/cameras/stream?url=${encodeURIComponent(streamIp)}`
+                )
               } 
               alt="Feed" 
               className="absolute inset-0 w-full h-full object-cover z-0"
@@ -244,10 +289,23 @@ const CameraGrid = () => {
   const [streamIps, setStreamIps] = useState(
     initialCameras.reduce((acc, cam) => ({ ...acc, [cam.id]: cam.ip }), {})
   );
+  // AI state
+  const [aiCameras, setAiCameras] = useState({});  // { camId: true/false }
+  const [aiDetections, setAiDetections] = useState({});  // { camName: {...} }
 
   useEffect(() => {
     const unsub = subscribeDrones((droneList) => {
       setDrones(droneList);
+    });
+    return unsub;
+  }, []);
+
+  // Subscribe to AI detection WebSocket for live counts
+  useEffect(() => {
+    const unsub = subscribeDetections((msg) => {
+      if (msg.type === 'detections' && msg.data) {
+        setAiDetections(msg.data);
+      }
     });
     return unsub;
   }, []);
@@ -260,12 +318,50 @@ const CameraGrid = () => {
     setPinnedCamId(prev => (prev === id ? null : id));
   };
 
+  const handleToggleAI = useCallback(async (cam) => {
+    const camKey = cam.id;
+    const isCurrentlyOn = aiCameras[camKey];
+    const streamUrl = streamIps[camKey];
+
+    if (isCurrentlyOn) {
+      // Disable AI
+      try { await unregisterAICamera(cam.name); } catch {}
+      setAiCameras(prev => ({ ...prev, [camKey]: false }));
+    } else {
+      // Enable AI
+      if (!streamUrl || streamUrl.trim() === '') {
+        alert('Set a camera stream URL before enabling AI detection.');
+        return;
+      }
+      try {
+        const sectorName = cam.sector.replace('SECTOR ', '');
+        await registerAICamera({
+          camera_id: cam.name,
+          url: streamUrl,
+          sector: sectorName,
+        });
+        setAiCameras(prev => ({ ...prev, [camKey]: true }));
+      } catch (err) {
+        console.error('Failed to enable AI:', err);
+      }
+    }
+  }, [aiCameras, streamIps]);
+
+  const aiCount = Object.values(aiCameras).filter(Boolean).length;
+
   return (
     <div className="w-full h-full p-4 flex flex-col bg-military-panel/50 overflow-hidden">
       <div className="flex justify-between items-center mb-4 shrink-0">
         <h2 className="text-sm font-bold text-military-green tracking-widest uppercase font-sans">Tactical Feeds</h2>
-        <div className="text-xs text-gray-400 font-mono">
-          {pinnedCamId ? `MODE: SINGLE FEED — MAXIMIZED` : 'MODE: 2×2 GRID PATROL'}
+        <div className="flex items-center gap-4">
+          {aiCount > 0 && (
+            <span className="text-[10px] font-mono text-green-400 flex items-center gap-1">
+              <Cpu className="w-3 h-3" /> AI: {aiCount} CAM{aiCount > 1 ? 'S' : ''}
+            </span>
+          )}
+          <div className="text-xs text-gray-400 font-mono">
+            {pinnedCamId ? `MODE: SINGLE FEED — MAXIMIZED` : 'MODE: 2×2 GRID PATROL'}
+          </div>
         </div>
       </div>
 
@@ -279,6 +375,9 @@ const CameraGrid = () => {
               droneData={drones.find(d => d.name === initialCameras.find(c => c.id === pinnedCamId).drone)}
               streamIp={streamIps[pinnedCamId]}
               onUpdateIp={handleUpdateIp}
+              aiEnabled={!!aiCameras[pinnedCamId]}
+              onToggleAI={handleToggleAI}
+              aiDetections={aiDetections[initialCameras.find(c => c.id === pinnedCamId)?.name]}
             />
           </div>
         ) : (
@@ -292,6 +391,9 @@ const CameraGrid = () => {
                   droneData={drones.find(d => d.name === cam.drone)}
                   streamIp={streamIps[cam.id]}
                   onUpdateIp={handleUpdateIp}
+                  aiEnabled={!!aiCameras[cam.id]}
+                  onToggleAI={handleToggleAI}
+                  aiDetections={aiDetections[cam.name]}
                 />
               </div>
             ))}

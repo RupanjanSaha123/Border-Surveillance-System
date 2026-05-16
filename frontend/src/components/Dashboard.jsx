@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw, CheckCircle2, Circle } from 'lucide-react';
+import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw, CheckCircle2, Circle, Cpu } from 'lucide-react';
 import { format } from 'date-fns';
 import CameraGrid from './CameraGrid';
 import AlertSystem from './AlertSystem';
 import MapSection from './MapSection';
+import DetectionPanel from './DetectionPanel';
 import { fetchAlerts, createAlert, subscribeAlerts, clearToken, fetchSettings, updateSettings, fetchStatus } from '../api';
 
 const Dashboard = ({ session, onLogout }) => {
@@ -217,6 +218,16 @@ const Dashboard = ({ session, onLogout }) => {
               <ShieldAlert className="w-4 h-4" /> Alert History
             </button>
             <button
+              onClick={() => setActiveTab('ai-detection')}
+              className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
+                activeTab === 'ai-detection'
+                  ? 'border-green-400 bg-green-400/10 text-green-400 shadow-[inset_3px_0_10px_rgba(74,222,128,0.18)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:bg-military-green/5'
+              }`}
+            >
+              <Cpu className="w-4 h-4" /> AI Detection
+            </button>
+            <button
               onClick={() => setActiveTab('settings')}
               className={`w-full flex items-center gap-3 p-3 text-sm tracking-wider uppercase transition-all border-l-2 ${
                 activeTab === 'settings'
@@ -244,6 +255,7 @@ const Dashboard = ({ session, onLogout }) => {
           {activeTab === 'cameras' && <CameraGrid />}
           {activeTab === 'map' && <MapSection mapCenter={mapCenter} resolvedAlerts={resolvedAlerts} />}
           {activeTab === 'alert-history' && <AlertHistoryPanel alerts={alerts} resolvedAlerts={resolvedAlerts} toggleResolved={toggleResolved} />}
+          {activeTab === 'ai-detection' && <DetectionPanel />}
           {activeTab === 'settings' && <SettingsPanel />}
         </main>
 

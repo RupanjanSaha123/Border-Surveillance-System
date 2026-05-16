@@ -210,6 +210,34 @@ const AlertSystem = ({ alerts, session, resolvedAlerts = new Set(), toggleResolv
                     </div>
                   </div>
                   <div className={`relative z-10 ${resolved || alert.acknowledged ? 'text-gray-500' : 'text-white'}`}>{alert.threat}</div>
+                  {/* AI Detection Details */}
+                  {alert.ai_description && !resolved && !alert.acknowledged && (
+                    <div className="relative z-10 mt-1.5">
+                      <div className="text-[10px] text-military-amber/90 italic leading-tight">{alert.ai_description}</div>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        {alert.ai_severity && (
+                          <span className={`text-[8px] px-1.5 py-0.5 uppercase tracking-widest font-bold border ${
+                            alert.ai_severity === 'emergency' ? 'border-red-500 text-red-400 bg-red-500/10' :
+                            alert.ai_severity === 'critical' ? 'border-red-400 text-red-400 bg-red-400/10' :
+                            alert.ai_severity === 'high' ? 'border-orange-400 text-orange-400 bg-orange-400/10' :
+                            'border-yellow-400 text-yellow-400 bg-yellow-400/10'
+                          }`}>{alert.ai_severity}</span>
+                        )}
+                        {alert.ai_detections?.humans > 0 && (
+                          <span className="text-[8px] px-1 py-0.5 border border-green-500/40 text-green-400 bg-green-500/10">H:{alert.ai_detections.humans}</span>
+                        )}
+                        {alert.ai_detections?.vehicles > 0 && (
+                          <span className="text-[8px] px-1 py-0.5 border border-blue-400/40 text-blue-400 bg-blue-400/10">V:{alert.ai_detections.vehicles}</span>
+                        )}
+                        {alert.ai_detections?.fire && (
+                          <span className="text-[8px] px-1 py-0.5 border border-red-500/40 text-red-400 bg-red-500/10">🔥FIRE</span>
+                        )}
+                        {alert.ai_detections?.weapons > 0 && (
+                          <span className="text-[8px] px-1 py-0.5 border border-red-500/40 text-red-400 bg-red-500/10 animate-pulse">⚠ W:{alert.ai_detections.weapons}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between items-end mt-2 relative z-10">
                     <div className="flex flex-col">
                       <span className="text-[9px] text-military-green">{alert.camera}</span>

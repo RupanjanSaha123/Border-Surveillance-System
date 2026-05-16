@@ -41,6 +41,22 @@ class Operator(SQLModel, table=True):
     otp: Optional[str] = Field(default=None)
 
 
+class DetectionLog(SQLModel, table=True):
+    """Persisted AI detection event for analytics and history."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    camera_id: str = Field(index=True)            # e.g. "CAM-01"
+    sector: str = Field(default="UNKNOWN")
+    humans: int = Field(default=0)
+    vehicles: int = Field(default=0)
+    fire: bool = Field(default=False)
+    weapons: int = Field(default=0)
+    avg_confidence: float = Field(default=0.0)
+    detection_fps: float = Field(default=0.0)
+    moving_objects: str = Field(default="[]")      # JSON-encoded list
+    alert_generated: bool = Field(default=False)
+
+
 class SystemSettings(SQLModel, table=True):
     """One-row table holding the current operational config."""
     id: Optional[int] = Field(default=None, primary_key=True)
