@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ShieldAlert, Radio, Zap, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { ShieldAlert, Radio, Zap, AlertTriangle, CheckCircle2, Clock, Check } from 'lucide-react';
+import { acknowledgeAlert } from '../api';
 
 /* ─── Mission Status Block ───────────────────────────────────────────────── */
 const MissionStatus = ({ alerts }) => {
@@ -146,7 +147,16 @@ const MissionStatus = ({ alerts }) => {
 };
 
 /* ─── AlertSystem ─────────────────────────────────────────────────────────── */
-const AlertSystem = ({ alerts }) => {
+const AlertSystem = ({ alerts, session }) => {
+  const handleAcknowledge = async (id) => {
+    try {
+      await acknowledgeAlert(id, session?.callSign || 'OPERATOR');
+      // Note: The UI will update when the next SSE event comes or if we refresh alerts
+      // For immediate feedback, we could optimistically update local state if Dashboard provided a callback
+    } catch (err) {
+      console.error('Failed to acknowledge alert', err);
+    }
+  };
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Mission Status Block (replaces old Live Telemetry) */}
@@ -171,7 +181,8 @@ const AlertSystem = ({ alerts }) => {
               <div
                 key={alert.id}
                 className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group
-                  ${alert.type === 'critical' ? 'border-military-red hover:bg-military-red/10' : 'border-military-amber hover:bg-military-amber/10'}`}
+                  ${alert.type === 'critical' ? 'border-military-red hover:bg-military-red/10' : 'border-military-amber hover:bg-military-amber/10'}
+                  ${alert.acknowledged ? 'opacity-50' : ''}`}
               >
                 {/* Scanning highlight */}
                 <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
@@ -180,12 +191,25 @@ const AlertSystem = ({ alerts }) => {
                   <span className={`font-bold tracking-widest ${alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'}`}>
                     SEC-{alert.sector}
                   </span>
-                  <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                  <div className="flex items-center gap-2">
+                    {alert.acknowledged && <Check className="w-3 h-3 text-military-green" />}
+                    <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                  </div>
                 </div>
                 <div className="text-white relative z-10">{alert.threat}</div>
                 <div className="flex justify-between items-end mt-2 relative z-10">
-                  <span className="text-[9px] text-military-green">{alert.camera}</span>
-                  <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-military-green">{alert.camera}</span>
+                    <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
+                  </div>
+                  {!alert.acknowledged && (
+                    <button
+                      onClick={() => handleAcknowledge(alert.id)}
+                      className="text-[9px] px-2 py-1 border border-military-green/50 text-military-green hover:bg-military-green hover:text-black transition-colors uppercase tracking-widest"
+                    >
+                      Ack
+                    </button>
+                  )}
                 </div>
               </div>
             ))

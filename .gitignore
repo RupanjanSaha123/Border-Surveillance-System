@@ -1,0 +1,36 @@
+# Dependency directories
+node_modules/
+venv/
+env/
+.env
+.venv/
+bin/
+lib/
+lib64/
+include/
+share/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database
+*.db
+*.sqlite3
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Frontend build
+dist/
+build/
+.next/
+
+# Logs
+*.log

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Power, Crosshair, Map as MapIcon, ShieldAlert, Settings, User, Search, Filter, Trash2, Bell, BellOff, Moon, Sun, Radio, Sliders, Save, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import CameraGrid from './CameraGrid';
 import AlertSystem from './AlertSystem';
 import MapSection from './MapSection';
+import { fetchAlerts, createAlert, subscribeAlerts, clearToken, fetchSettings, updateSettings, fetchStatus } from '../api';
 
 const Dashboard = ({ session, onLogout }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -12,46 +13,93 @@ const Dashboard = ({ session, onLogout }) => {
   const [alerts, setAlerts] = useState([]);
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [currentAlert, setCurrentAlert] = useState(null);
+  const [systemHealth, setSystemHealth] = useState({
+    drones_online: 12,
+    sat_link: 'SECURE',
+    power_level: 98,
+  });
 
+  // ── Clock ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const triggerMockAlert = () => {
-    // Play subtle beep sound
+  // ── Load historical alerts + subscribe to live SSE stream ──────────────────
+  useEffect(() => {
+    // 1. Initial load
+    fetchAlerts({ limit: 50 })
+      .then(data => {
+        // Backend returns alert_type; normalise to 'type' for UI compatibility
+        const normalised = data.map(a => ({ ...a, type: a.alert_type, lat: String(a.lat), lng: String(a.lng) }));
+        setAlerts(normalised);
+      })
+      .catch(console.error);
+
+    // 2. Live SSE stream
+    const unsub = subscribeAlerts(
+      (alert) => {
+        const normalised = { ...alert, type: alert.alert_type, lat: String(alert.lat), lng: String(alert.lng) };
+        playBeep();
+        setCurrentAlert(normalised);
+        setIsAlertModalOpen(true);
+        setAlerts(prev => [normalised, ...prev].slice(0, 50));
+      },
+      () => console.warn('BSC alert stream closed — reconnect manually'),
+    );
+
+    return unsub;
+  }, []);
+
+  // ── Poll system status (health) ──────────────────────────────────────────
+  useEffect(() => {
+    const update = () => {
+      fetchStatus()
+        .then(setSystemHealth)
+        .catch(() => {});
+    };
+    update();
+    const t = setInterval(update, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  const playBeep = () => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
-      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.5);
-    } catch(e) {
-      console.error('Audio api error', e);
-    }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    } catch (e) { console.error('Audio error', e); }
+  };
 
-    const newAlert = {
-      id: Date.now(),
-      timestamp: new Date().toISOString(),
-      sector: ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'][Math.floor(Math.random() * 4)],
-      threat: ['Unidentified Movement', 'Thermal Signature', 'Perimeter Breach', 'Drone Sighted'][Math.floor(Math.random() * 4)],
-      camera: `CAM-0${Math.floor(Math.random() * 4) + 1}`,
-      lat: (32.4 + Math.random() * 0.2).toFixed(4),
-      lng: (76.4 + Math.random() * 0.2).toFixed(4),
-      type: Math.random() > 0.5 ? 'critical' : 'warning',
+  // ── Test alert — creates a real record in the DB ───────────────────────────
+  const triggerMockAlert = async () => {
+    const body = {
+      sector:     ['ALPHA', 'BRAVO', 'CHARLIE', 'DELTA'][Math.floor(Math.random() * 4)],
+      threat:     ['Unidentified Movement', 'Thermal Signature', 'Perimeter Breach', 'Drone Sighted'][Math.floor(Math.random() * 4)],
+      camera:     `CAM-0${Math.floor(Math.random() * 4) + 1}`,
+      lat:        parseFloat((32.4 + Math.random() * 0.2).toFixed(4)),
+      lng:        parseFloat((76.4 + Math.random() * 0.2).toFixed(4)),
+      alert_type: Math.random() > 0.5 ? 'critical' : 'warning',
     };
-
-    setCurrentAlert(newAlert);
-    setIsAlertModalOpen(true);
-    setAlerts(prev => [newAlert, ...prev].slice(0, 50));
+    try {
+      await createAlert(body);
+      // The SSE stream will receive the new alert and update UI automatically
+    } catch (err) {
+      // Fallback: show locally if backend is down
+      const local = { ...body, id: Date.now(), timestamp: new Date().toISOString(), type: body.alert_type, lat: String(body.lat), lng: String(body.lng) };
+      playBeep();
+      setCurrentAlert(local);
+      setIsAlertModalOpen(true);
+      setAlerts(prev => [local, ...prev].slice(0, 50));
+    }
   };
 
   const handleViewOnMap = () => {
@@ -63,7 +111,10 @@ const Dashboard = ({ session, onLogout }) => {
 
   const handleLogout = () => {
     const confirmed = window.confirm('⚠ Terminate operator session?\n\nAll unsaved settings will be lost. Proceed with logout?');
-    if (confirmed) onLogout();
+    if (confirmed) {
+      clearToken();
+      onLogout();
+    }
   };
 
   return (
@@ -109,18 +160,18 @@ const Dashboard = ({ session, onLogout }) => {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-400">DRONES ONLINE</span>
-                <span className="text-military-amber font-bold">12/12</span>
+                <span className="text-military-amber font-bold">{systemHealth.drones_online}/12</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-400">SAT LINK</span>
-                <span className="text-military-green font-bold flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-military-green animate-pulse"></span>
-                  SECURE
+                <span className={`font-bold flex items-center gap-1 ${systemHealth.sat_link === 'SECURE' ? 'text-military-green' : 'text-military-red'}`}>
+                  {systemHealth.sat_link === 'SECURE' && <span className="w-2 h-2 rounded-full bg-military-green animate-pulse"></span>}
+                  {systemHealth.sat_link}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-gray-400">PWR LEVEL</span>
-                <span className="text-white font-bold">98%</span>
+                <span className="text-white font-bold">{systemHealth.power_level}%</span>
               </div>
             </div>
           </div>
@@ -174,7 +225,7 @@ const Dashboard = ({ session, onLogout }) => {
 
         {/* Right Panel (25%) */}
         <aside className="w-[25%] min-w-[300px] border-l border-military-green bg-military-panel/90 flex flex-col z-10">
-          <AlertSystem alerts={alerts} />
+          <AlertSystem alerts={alerts} session={session} />
         </aside>
       </div>
 
@@ -382,31 +433,62 @@ const SettingsPanel = () => {
     streamQuality: 'HD',
   };
 
-  const [config, setConfig] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('bsc-settings') || '{}');
-      // SECURITY FIX: Only restore non-sensitive operational preferences
-      const safeKeys = ['dronesOnline', 'alertSensitivity', 'scanInterval', 'audioAlerts', 'autoTrack', 'nightVision', 'streamQuality', 'encryptionLevel'];
-      const safeRestored = Object.fromEntries(Object.entries(saved).filter(([k]) => safeKeys.includes(k)));
-      return { ...defaults, ...safeRestored };
-    }
-    catch { return defaults; }
-  });
+  const [config, setConfig] = useState(defaults);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Map backend snake_case keys to camelCase for the UI
+  const fromApi = (d) => ({
+    dronesOnline: d.drones_online,
+    alertSensitivity: d.alert_sensitivity,
+    scanInterval: d.scan_interval,
+    audioAlerts: d.audio_alerts,
+    autoTrack: d.auto_track,
+    nightVision: d.night_vision,
+    encryptionLevel: d.encryption_level,
+    streamQuality: d.stream_quality,
+    operatorId: defaults.operatorId,
+    callSign: defaults.callSign,
+  });
+
+  const toApi = (c) => ({
+    drones_online: c.dronesOnline,
+    alert_sensitivity: c.alertSensitivity,
+    scan_interval: c.scanInterval,
+    audio_alerts: c.audioAlerts,
+    auto_track: c.autoTrack,
+    night_vision: c.nightVision,
+    encryption_level: c.encryptionLevel,
+    stream_quality: c.streamQuality,
+  });
+
+  useEffect(() => {
+    fetchSettings()
+      .then(d => setConfig(fromApi(d)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const update = (key, val) => setConfig(prev => ({ ...prev, [key]: val }));
 
-  const saveSettings = () => {
-    // SECURITY FIX: Only persist non-sensitive preferences — never operator identity
-    const { dronesOnline, alertSensitivity, scanInterval, audioAlerts, autoTrack, nightVision, streamQuality, encryptionLevel } = config;
-    localStorage.setItem('bsc-settings', JSON.stringify({ dronesOnline, alertSensitivity, scanInterval, audioAlerts, autoTrack, nightVision, streamQuality, encryptionLevel }));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  const saveSettings = async () => {
+    try {
+      const updated = await updateSettings(toApi(config));
+      setConfig(fromApi(updated));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error('Settings save failed', err);
+    }
   };
 
-  const resetSettings = () => {
-    setConfig(defaults);
-    localStorage.removeItem('bsc-settings');
+  const resetSettings = async () => {
+    try {
+      const updated = await updateSettings(toApi(defaults));
+      setConfig(fromApi(updated));
+    } catch {
+      setConfig(defaults);
+    }
   };
 
   const Toggle = ({ value, onChange }) => (

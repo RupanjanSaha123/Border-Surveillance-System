@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import '../styles/map-overrides.css';
 import { Crosshair, Copy, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { subscribeDrones } from '../api';
 
 // Fix for default marker icons in React Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -44,12 +45,15 @@ const MapSection = ({ mapCenter }) => {
   const [copied, setCopied] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null);
 
-  // Mock drones
-  const [drones] = useState([
-    { id: 1, lat: 32.48, lng: 76.45, name: 'DRONE-ALPHA' },
-    { id: 2, lat: 32.52, lng: 76.55, name: 'DRONE-BRAVO' },
-    { id: 3, lat: 32.45, lng: 76.60, name: 'DRONE-CHARLIE' },
-  ]);
+  // Real drones state
+  const [drones, setDrones] = useState([]);
+
+  useEffect(() => {
+    const unsub = subscribeDrones((droneList) => {
+      setDrones(droneList);
+    });
+    return unsub;
+  }, []);
 
   // SECURITY FIX: Use useMapEvents hook instead of onClick prop on MapContainer
   const MapClickHandler = () => {
