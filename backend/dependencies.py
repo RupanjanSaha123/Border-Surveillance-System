@@ -8,15 +8,24 @@ from sqlmodel import Session, select
 from auth import decode_token
 from database import get_session, Operator
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_operator(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    token: str = None,
     session: Session = Depends(get_session),
 ) -> Operator:
-    token = credentials.credentials
-    payload = decode_token(token)
+    actual_token = credentials.credentials if credentials else token
+
+    if not actual_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = decode_token(actual_token)
 
     if payload is None:
         raise HTTPException(

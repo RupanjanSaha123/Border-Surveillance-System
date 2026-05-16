@@ -140,7 +140,7 @@ const Dashboard = ({ session, onLogout }) => {
           <div className="flex items-center gap-4">
             <button 
               onClick={triggerMockAlert}
-              className="text-xs border border-military-amber/50 text-military-amber px-2 py-1 hover:bg-military-amber/20 transition-colors"
+              className="text-xs font-bold tracking-widest uppercase border border-military-red/40 text-military-red px-3 py-1.5 hover:bg-military-red/10 transition-colors"
             >
               TEST ALERT
             </button>

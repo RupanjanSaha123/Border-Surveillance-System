@@ -86,7 +86,7 @@ const MissionStatus = ({ alerts }) => {
                 className={`h-2 flex-1 transition-all duration-500 ${
                   i <= threatLevel
                     ? threatBarColors[threatLevel]
-                    : 'bg-gray-800'
+                    : 'bg-military-amber/40'
                 } ${i <= threatLevel && threatLevel === 4 ? 'animate-pulse' : ''}`}
               />
             ))}
@@ -123,7 +123,7 @@ const MissionStatus = ({ alerts }) => {
               return (
                 <div key={name} className="flex items-center gap-2">
                   <span className="text-[9px] font-mono text-gray-400 w-16 shrink-0">{name}</span>
-                  <div className="flex-1 h-1.5 bg-gray-800 relative overflow-hidden">
+                  <div className="flex-1 h-1.5 bg-military-amber/40 relative overflow-hidden">
                     {hasAny && (
                       <div
                         className={`absolute left-0 top-0 h-full transition-all duration-700 ${hasCritical ? 'bg-military-red' : 'bg-military-amber'}`}
