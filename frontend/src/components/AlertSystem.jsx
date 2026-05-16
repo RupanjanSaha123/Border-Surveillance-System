@@ -146,7 +146,7 @@ const MissionStatus = ({ alerts }) => {
 };
 
 /* ─── AlertSystem ─────────────────────────────────────────────────────────── */
-const AlertSystem = ({ alerts }) => {
+const AlertSystem = ({ alerts, resolvedAlerts = new Set(), toggleResolved }) => {
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Mission Status Block (replaces old Live Telemetry) */}
@@ -167,28 +167,56 @@ const AlertSystem = ({ alerts }) => {
               System Clear // No active threats
             </div>
           ) : (
-            alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group
-                  ${alert.type === 'critical' ? 'border-military-red hover:bg-military-red/10' : 'border-military-amber hover:bg-military-amber/10'}`}
-              >
-                {/* Scanning highlight */}
-                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            alerts.map((alert) => {
+              const resolved = resolvedAlerts.has(alert.id);
+              return (
+                <div
+                  key={alert.id}
+                  className={`p-3 border-l-2 bg-black/40 text-xs font-mono relative overflow-hidden group transition-opacity ${
+                    resolved
+                      ? 'border-military-green/50 opacity-50'
+                      : alert.type === 'critical'
+                        ? 'border-military-red hover:bg-military-red/10'
+                        : 'border-military-amber hover:bg-military-amber/10'
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
-                <div className="flex justify-between items-start mb-1 relative z-10">
-                  <span className={`font-bold tracking-widest ${alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'}`}>
-                    SEC-{alert.sector}
-                  </span>
-                  <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                  <div className="flex justify-between items-start mb-1 relative z-10">
+                    <span className={`font-bold tracking-widest ${
+                      resolved ? 'text-military-green/60 line-through'
+                      : alert.type === 'critical' ? 'text-military-red' : 'text-military-amber'
+                    }`}>
+                      SEC-{alert.sector}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500">{format(new Date(alert.timestamp), 'HH:mm:ss')}</span>
+                      {/* ── Operation resolved tick ── */}
+                      {toggleResolved && (
+                        <button
+                          onClick={() => toggleResolved(alert.id)}
+                          title={resolved ? 'Unmark resolved' : 'Mark operation resolved'}
+                          className="flex items-center justify-center"
+                        >
+                          {resolved
+                            ? <CheckCircle2 className="w-3.5 h-3.5 text-military-green" />
+                            : <CheckCircle2 className="w-3.5 h-3.5 text-gray-700 hover:text-military-green/60 transition-colors" />
+                          }
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`relative z-10 ${resolved ? 'text-gray-500' : 'text-white'}`}>{alert.threat}</div>
+                  <div className="flex justify-between items-end mt-2 relative z-10">
+                    <span className="text-[9px] text-military-green">{alert.camera}</span>
+                    {resolved
+                      ? <span className="text-[9px] text-military-green/70 font-bold tracking-widest">✓ RESOLVED</span>
+                      : <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
+                    }
+                  </div>
                 </div>
-                <div className="text-white relative z-10">{alert.threat}</div>
-                <div className="flex justify-between items-end mt-2 relative z-10">
-                  <span className="text-[9px] text-military-green">{alert.camera}</span>
-                  <span className="text-[9px] text-gray-400">{alert.lat}, {alert.lng}</span>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

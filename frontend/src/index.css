@@ -7,7 +7,7 @@
     background: linear-gradient(
       to bottom,
       transparent 50%,
-      rgba(74, 103, 65, 0.1) 51%,
+      rgba(60, 74, 59, 0.12) 51%,
       transparent 51%
     );
     background-size: 100% 4px;
@@ -18,7 +18,7 @@ body {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  background-color: #0a0c0f;
+  background-color: #243026;
   color: white;
   overflow: hidden;
 }
@@ -28,14 +28,14 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0c0f;
+  background: #243026;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4a6741;
+  background: #3C4A3B;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #f59e0b;
+  background: #8B8F74;
 }
 
 @keyframes radar-sweep {

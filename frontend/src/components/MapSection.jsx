@@ -58,11 +58,11 @@ const PatrolLines = ({ wps, segIdx, dronePos }) => {
     const planned = [dronePos, ...wps.slice(segIdx + 1)];
 
     if (!vRef.current) {
-      vRef.current = L.polyline(visited, { color: '#4ade80', weight: 2.2, opacity: 0.95, smoothFactor: 0 }).addTo(map);
+      vRef.current = L.polyline(visited, { color: '#8B8F74', weight: 2.2, opacity: 0.95, smoothFactor: 0 }).addTo(map);
     } else { vRef.current.setLatLngs(visited); }
 
     if (!pRef.current) {
-      pRef.current = L.polyline(planned, { color: '#ffffff', weight: 1.4, opacity: 0.28, dashArray: '8 8', smoothFactor: 0 }).addTo(map);
+      pRef.current = L.polyline(planned, { color: '#8B8F74', weight: 1.4, opacity: 0.28, dashArray: '8 8', smoothFactor: 0 }).addTo(map);
     } else { pRef.current.setLatLngs(planned); }
   });
 
@@ -76,8 +76,8 @@ const PatrolLines = ({ wps, segIdx, dronePos }) => {
 
 // ── Waypoint dot markers ───────────────────────────────────────────────────────
 const WpDot = ({ pos, visited }) => {
-  const col = visited ? '#4ade80' : '#ffffff';
-  const op  = visited ? '1' : '0.28';
+  const col = visited ? '#8B8F74' : '#8B8F74';
+  const op  = visited ? '1' : '0.25';
   const icon = L.divIcon({
     html: `<div style="width:8px;height:8px;border-radius:50%;border:1.5px solid ${col};background:${col}55;opacity:${op};margin:-4px"></div>`,
     className: '', iconSize: [0, 0],
@@ -88,17 +88,17 @@ const WpDot = ({ pos, visited }) => {
 // ── Drone icon ─────────────────────────────────────────────────────────────────
 const DRONE_ICON = L.divIcon({
   html: `<svg width="34" height="34" viewBox="-17 -17 34 34" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
-    <circle r="6" fill="#071a0b" stroke="#4ade80" stroke-width="1.6"/>
-    <line x1="-14" y1="0" x2="-6" y2="0" stroke="#4ade80" stroke-width="1.5"/>
-    <line x1="6"   y1="0" x2="14" y2="0" stroke="#4ade80" stroke-width="1.5"/>
-    <line x1="0" y1="-14" x2="0" y2="-6" stroke="#4ade80" stroke-width="1.5"/>
-    <line x1="0" y1="6"   x2="0" y2="14" stroke="#4ade80" stroke-width="1.5"/>
-    <circle cx="-14" cy="0"  r="3.2" fill="none" stroke="#4ade80" stroke-width="1" opacity="0.75"/>
-    <circle cx="14"  cy="0"  r="3.2" fill="none" stroke="#4ade80" stroke-width="1" opacity="0.75"/>
-    <circle cx="0"  cy="-14" r="3.2" fill="none" stroke="#4ade80" stroke-width="1" opacity="0.75"/>
-    <circle cx="0"  cy="14"  r="3.2" fill="none" stroke="#4ade80" stroke-width="1" opacity="0.75"/>
-    <circle r="2.5" fill="#4ade80"/>
-    <circle r="20" fill="none" stroke="#4ade80" stroke-width="0.8" opacity="0.35" stroke-dasharray="5 4">
+    <circle r="6" fill="#243026" stroke="#8B8F74" stroke-width="1.6"/>
+    <line x1="-14" y1="0" x2="-6" y2="0" stroke="#8B8F74" stroke-width="1.5"/>
+    <line x1="6"   y1="0" x2="14" y2="0" stroke="#8B8F74" stroke-width="1.5"/>
+    <line x1="0" y1="-14" x2="0" y2="-6" stroke="#8B8F74" stroke-width="1.5"/>
+    <line x1="0" y1="6"   x2="0" y2="14" stroke="#8B8F74" stroke-width="1.5"/>
+    <circle cx="-14" cy="0"  r="3.2" fill="none" stroke="#8B8F74" stroke-width="1" opacity="0.75"/>
+    <circle cx="14"  cy="0"  r="3.2" fill="none" stroke="#8B8F74" stroke-width="1" opacity="0.75"/>
+    <circle cx="0"  cy="-14" r="3.2" fill="none" stroke="#8B8F74" stroke-width="1" opacity="0.75"/>
+    <circle cx="0"  cy="14"  r="3.2" fill="none" stroke="#8B8F74" stroke-width="1" opacity="0.75"/>
+    <circle r="2.5" fill="#8B8F74"/>
+    <circle r="20" fill="none" stroke="#8B8F74" stroke-width="0.8" opacity="0.35" stroke-dasharray="5 4">
       <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="3s" repeatCount="indefinite"/>
     </circle>
   </svg>`,
@@ -123,6 +123,87 @@ const Radar = ({ color, dur, label }) => (
   </div>
 );
 
+// ── ThreatMarker: pulsing red zone at alert lat/lng ────────────────────────────
+const ThreatMarker = ({ mapCenter }) => {
+  const map = useMap();
+  const layersRef = useRef([]);
+
+  useEffect(() => {
+    // Clean up previous layers
+    layersRef.current.forEach(l => map.removeLayer(l));
+    layersRef.current = [];
+    if (!mapCenter) return;
+
+    const { lat, lng, sector, threat } = mapCenter;
+
+    // Fly map to threat location
+    map.flyTo([lat, lng], 13, { duration: 1.8 });
+
+    // Outer pulsing ring (large)
+    const outerRing = L.circle([lat, lng], {
+      radius: 600, color: '#ef4444', fillColor: '#ef4444',
+      fillOpacity: 0.06, weight: 1.2, dashArray: '6 5',
+    }).addTo(map);
+
+    // Middle ring
+    const midRing = L.circle([lat, lng], {
+      radius: 280, color: '#ef4444', fillColor: '#ef4444',
+      fillOpacity: 0.12, weight: 1.8,
+    }).addTo(map);
+
+    // Inner filled zone
+    const inner = L.circle([lat, lng], {
+      radius: 100, color: '#ef4444', fillColor: '#ef4444',
+      fillOpacity: 0.3, weight: 2.5,
+    }).addTo(map);
+
+    // Crosshair marker with blinking label
+    const threatIcon = L.divIcon({
+      html: `
+        <div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+          <!-- Crosshair -->
+          <svg width="28" height="28" viewBox="-14 -14 28 28" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">
+            <circle r="8" fill="rgba(239,68,68,0.25)" stroke="#ef4444" stroke-width="2"/>
+            <line x1="-14" y1="0" x2="-9" y2="0" stroke="#ef4444" stroke-width="1.5"/>
+            <line x1="9"   y1="0" x2="14" y2="0" stroke="#ef4444" stroke-width="1.5"/>
+            <line x1="0" y1="-14" x2="0" y2="-9" stroke="#ef4444" stroke-width="1.5"/>
+            <line x1="0" y1="9"   x2="0" y2="14" stroke="#ef4444" stroke-width="1.5"/>
+            <circle r="2.5" fill="#ef4444"/>
+          </svg>
+          <!-- Label -->
+          <div style="
+            margin-top:4px;
+            background:rgba(0,0,0,0.85);
+            border:1px solid #ef4444;
+            padding:2px 6px;
+            font-family:monospace;
+            font-size:9px;
+            color:#ef4444;
+            letter-spacing:0.15em;
+            white-space:nowrap;
+            animation: threatBlink 1s step-start infinite;
+          ">⚠ SEC-${sector ?? '?'}</div>
+        </div>
+        <style>
+          @keyframes threatBlink {
+            0%,100%{opacity:1} 50%{opacity:0.3}
+          }
+        </style>
+      `,
+      className: '',
+      iconSize:   [28, 28],
+      iconAnchor: [14, 14],
+    });
+    const pin = L.marker([lat, lng], { icon: threatIcon }).addTo(map);
+
+    layersRef.current = [outerRing, midRing, inner, pin];
+
+    return () => layersRef.current.forEach(l => map.removeLayer(l));
+  }, [mapCenter, map]);
+
+  return null;
+};
+
 // ── MapSection ─────────────────────────────────────────────────────────────────
 const MapSection = ({ mapCenter }) => {
   const [time, setTime] = useState(new Date());
@@ -142,6 +223,8 @@ const MapSection = ({ mapCenter }) => {
         <PatrolLines wps={WAYPOINTS} segIdx={segIdx} dronePos={pos}/>
         {WAYPOINTS.map((wp, i) => <WpDot key={i} pos={wp} visited={i <= segIdx}/>)}
         <Marker position={pos} icon={DRONE_ICON}/>
+        {/* Threat zone marker — auto-placed when alert fires */}
+        {mapCenter && <ThreatMarker mapCenter={mapCenter}/>}
       </MapContainer>
 
       {/* ── Corner brackets ── */}
@@ -155,7 +238,7 @@ const MapSection = ({ mapCenter }) => {
             <polyline points={`${14+sx*14},0 ${14-sx*14},0 ${14-sx*14},${28} `}
               fill="none" stroke="#4ade80" strokeWidth="1.5" opacity="0.65"
               points={`${sx===1?'26,2 2,2 2,26':'2,2 26,2 26,26'}`}/>
-            <polyline fill="none" stroke="#4ade80" strokeWidth="1.5" opacity="0.65"
+            <polyline fill="none" stroke="#8B8F74" strokeWidth="1.5" opacity="0.65"
               points={sx===1 && sy===1  ? '24,2 2,2 2,24'
                     : sx===-1 && sy===1  ? '4,2 26,2 26,24'
                     : sx===1 && sy===-1  ? '24,26 2,26 2,4'
@@ -169,8 +252,8 @@ const MapSection = ({ mapCenter }) => {
         background:'linear-gradient(to bottom,rgba(0,0,0,0.8) 0%,transparent 100%)',
         display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 18px 24px' }}>
         <div>
-          <div style={{ fontSize:9, color:'#4ade80', letterSpacing:'0.25em' }}>MAP NAVIGATION</div>
-          <div style={{ fontSize:8, color:'#6b7280', letterSpacing:'0.2em' }}>SECTOR: {mapCenter?.sector ?? 'ALPHA-7'}</div>
+          <div style={{ fontSize:9, color:'#8B8F74', letterSpacing:'0.25em' }}>MAP NAVIGATION</div>
+          <div style={{ fontSize:8, color:'#3C4A3B', letterSpacing:'0.2em' }}>SECTOR: {mapCenter?.sector ?? 'ALPHA-7'}</div>
         </div>
         <div style={{ display:'flex', gap:32 }}>
           <div style={{ textAlign:'center' }}>
@@ -192,21 +275,21 @@ const MapSection = ({ mapCenter }) => {
           <polyline points="0,21 10,9 20,34 30,5 42,37 52,14 62,27 72,8 84,35 94,17 104,29 114,10 126,21"
             fill="none" stroke="#4ade80" strokeWidth="1.3" opacity="0.75"/>
         </svg>
-        <div style={{ fontSize:7, color:'#4ade80', letterSpacing:'0.22em', marginTop:2 }}>SIGNAL FEED</div>
+        <div style={{ fontSize:7, color:'#8B8F74', letterSpacing:'0.22em', marginTop:2 }}>SIGNAL FEED</div>
       </div>
 
       {/* ── Radars ── */}
       <div style={{ position:'absolute', bottom:16, left:16, zIndex:500 }}>
-        <Radar color="#16a34a" dur="4s" label="RADAR"/>
+        <Radar color="#3C4A3B" dur="4s" label="RADAR"/>
       </div>
       <div style={{ position:'absolute', bottom:16, right:16, zIndex:500 }}>
-        <Radar color="#f59e0b" dur="6s" label="TARGET"/>
+        <Radar color="#8B8F74" dur="6s" label="TARGET"/>
       </div>
 
       {/* ── Right status ── */}
       <div style={{ position:'absolute', top:'50%', right:10, transform:'translateY(-50%)', zIndex:500, pointerEvents:'none', textAlign:'right', display:'flex', flexDirection:'column', gap:6 }}>
         {['ALT: 450 M','SPD: 42 KT','STATUS: PATROL','FUEL: 84%'].map((t,i) => (
-          <div key={i} style={{ fontSize:8, color: i<2 ? '#f59e0b' : '#4ade80', letterSpacing:'0.18em' }}>{t}</div>
+          <div key={i} style={{ fontSize:8, color: i<2 ? '#8B8F74' : '#3C4A3B', letterSpacing:'0.18em' }}>{t}</div>
         ))}
       </div>
 
@@ -215,12 +298,21 @@ const MapSection = ({ mapCenter }) => {
         background:'linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 100%)',
         display:'flex', alignItems:'flex-end', justifyContent:'space-between', padding:'24px 18px 8px' }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <div style={{ width:7, height:7, borderRadius:'50%', background:'#4ade80' }}/>
-          <span style={{ fontSize:8, color:'#4ade80', letterSpacing:'0.2em' }}>DRONE-ALPHA · ACTIVE PATROL</span>
+          <div style={{ width:7, height:7, borderRadius:'50%', background:'#8B8F74' }}/>
+          <span style={{ fontSize:8, color:'#8B8F74', letterSpacing:'0.2em' }}>DRONE-ALPHA · ACTIVE PATROL</span>
         </div>
-        <div style={{ fontSize:8, color:'#4b5563', letterSpacing:'0.18em' }}>
-          WP-{segIdx} → WP-{segIdx + 1} · {Math.round(segProg * 100)}%
-        </div>
+        {mapCenter ? (
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <div style={{ width:7, height:7, borderRadius:'50%', background:'#ef4444', animation:'pulse 1s infinite' }}/>
+            <span style={{ fontSize:8, color:'#ef4444', letterSpacing:'0.2em' }}>
+              ⚠ THREAT · {mapCenter.lat}, {mapCenter.lng}
+            </span>
+          </div>
+        ) : (
+          <div style={{ fontSize:8, color:'#4b5563', letterSpacing:'0.18em' }}>
+            WP-{segIdx} → WP-{segIdx + 1} · {Math.round(segProg * 100)}%
+          </div>
+        )}
       </div>
     </div>
   );
