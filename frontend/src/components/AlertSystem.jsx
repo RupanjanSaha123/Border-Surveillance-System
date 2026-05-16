@@ -160,10 +160,15 @@ const AlertSystem = ({ alerts, session, resolvedAlerts = new Set(), toggleResolv
     }
   };
 
+  const activeAlerts = useMemo(() => 
+    alerts.filter(a => !a.acknowledged && !resolvedAlerts.has(a.id)),
+    [alerts, resolvedAlerts]
+  );
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       {/* Mission Status Block (replaces old Live Telemetry) */}
-      <MissionStatus alerts={alerts} />
+      <MissionStatus alerts={activeAlerts} />
 
       {/* Threat Log */}
       <div className="flex-1 flex flex-col min-h-0">
@@ -175,14 +180,14 @@ const AlertSystem = ({ alerts, session, resolvedAlerts = new Set(), toggleResolv
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {alerts.length === 0 ? (
+          {activeAlerts.length === 0 ? (
             <div className="text-center text-gray-600 text-xs py-8 uppercase tracking-widest font-mono">
               System Clear // No active threats
             </div>
           ) : (
-            alerts.map((alert) => {
-              const resolved = resolvedAlerts.has(alert.id);
-              const acknowledged = alert.acknowledged || resolved;
+            activeAlerts.map((alert) => {
+              const resolved = false; // Always false since we filter active alerts
+              const acknowledged = false; // Always false since we filter active alerts
               
               return (
                 <div
