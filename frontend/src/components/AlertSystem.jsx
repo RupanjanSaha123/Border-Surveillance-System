@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
-import { ShieldAlert, Radio, Zap, AlertTriangle, CheckCircle2, Clock, Check } from 'lucide-react';
+import { ShieldAlert, Radio, Zap, AlertTriangle, CheckCircle2, Clock, Check, Eye } from 'lucide-react';
 import { acknowledgeAlert } from '../api';
 
 /* ─── Mission Status Block ───────────────────────────────────────────────── */
@@ -251,9 +251,11 @@ const AlertSystem = ({ alerts, session, resolvedAlerts = new Set(), toggleResolv
                     {!acknowledged && (
                       <button
                         onClick={() => handleAcknowledge(alert.id)}
-                        className="text-[9px] px-2 py-1 border border-military-green/50 text-military-green hover:bg-military-green hover:text-black transition-colors uppercase tracking-widest"
+                        title="Mark this alert as read"
+                        className="flex items-center gap-1 text-[9px] px-2 py-1 border border-military-green/50 text-military-green hover:bg-military-green hover:text-black transition-colors uppercase tracking-widest"
                       >
-                        Ack
+                        <Eye className="w-2.5 h-2.5" />
+                        Mark as Read
                       </button>
                     )}
 
