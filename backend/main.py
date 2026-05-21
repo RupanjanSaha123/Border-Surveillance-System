@@ -93,12 +93,15 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_event_loop()
     detection_engine.set_alert_callback(on_ai_alert, loop)
 
-    # Start engine (loads models in background)
-    try:
-        detection_engine.start()
-        print("AI Detection Engine started.")
-    except Exception as e:
-        print(f"AI Engine startup warning: {e} — AI features may be limited.")
+    # Start engine asynchronously so backend can accept requests immediately
+    async def _async_start_engine():
+        try:
+            await asyncio.to_thread(detection_engine.start)
+            print("AI Detection Engine started.")
+        except Exception as e:
+            print(f"AI Engine startup warning: {e} — AI features may be limited.")
+
+    asyncio.create_task(_async_start_engine())
 
     # Start detection history logger (persists detection events to DB)
     from routers.detection import detection_history_logger
